@@ -1,0 +1,20 @@
+# secrets and runtime state — never committed
+.env
+.session
+.tokens.json
+state.json
+.daemon.lock
+ledger.jsonl
+queue.json
+KILL
+logs/
+*.log
+.tts-cache/
+*.command
+
+# dependencies
+node_modules/
+
+# OS
+.DS_Store
+**/.DS_Store

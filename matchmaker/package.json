@@ -1,0 +1,14 @@
+{
+  "name": "encourt-matchmaker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "24/7 open-match consolidator — detects near-miss padel matches that would fill if players shift ±30 min, pings them in the Playtomic match chat. Spec: brain/specs/open-match-consolidation.md",
+  "scripts": {
+    "test": "node test/scorer.test.js && node test/playtomic.test.js && node test/daemon.test.js",
+    "probe": "node probe-auth.js",
+    "verify": "node verify-live.js",
+    "start": "node daemon.js",
+    "once": "node daemon.js --once"
+  }
+}

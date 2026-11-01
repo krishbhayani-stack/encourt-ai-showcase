@@ -1,0 +1,8 @@
+node_modules/
+.env
+.session
+npm-debug.log*
+
+# .command launchers are local convenience files (machine-specific PATH); keep them out of git.
+*.command
+.tts-cache/

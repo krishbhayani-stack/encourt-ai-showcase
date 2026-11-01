@@ -1,0 +1,147 @@
+<style>
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.hud{font-family:var(--font-mono);letter-spacing:1.5px;text-transform:uppercase}
+.sk{background:rgba(56,212,245,.05);border:1px solid rgba(56,212,245,.16);border-radius:10px;padding:10px 12px;cursor:pointer;transition:all .15s}
+.sk:hover{border-color:rgba(56,212,245,.55);background:rgba(56,212,245,.1);box-shadow:0 0 14px rgba(56,212,245,.18)}
+.tile{background:rgba(56,212,245,.06);border:1px solid rgba(56,212,245,.2);border-radius:10px;padding:12px 14px;cursor:pointer;transition:all .15s}
+.tile:hover{border-color:rgba(56,212,245,.55);box-shadow:0 0 14px rgba(56,212,245,.18)}
+.chip{font-size:12px;padding:5px 12px;border:1px solid rgba(56,212,245,.3);border-radius:999px;cursor:pointer;color:#8fd7ec;background:rgba(56,212,245,.05)}
+.chip:hover{background:rgba(56,212,245,.14);border-color:rgba(56,212,245,.6)}
+.cad{font-size:10px;padding:2px 8px;border-radius:999px;background:rgba(56,212,245,.08);color:#5f93ad;white-space:nowrap;font-family:var(--font-mono);letter-spacing:1px;text-transform:uppercase}
+.lbl{font-size:10px;color:#5f93ad;margin:0 0 5px;font-family:var(--font-mono);letter-spacing:1.5px;text-transform:uppercase}
+.val{font-size:21px;font-weight:500;margin:0;color:#eaf9ff}
+.sub{font-size:12px;color:#7fa8c0;margin:5px 0 0}
+.skn{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:500;color:#dff3fc}
+.skd{font-size:12px;color:#7fa8c0;margin:6px 0 0}
+#cmd::placeholder{color:#46708a}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+</style>
+
+<h2 class="sr-only">Encourt command deck: club KPIs with on-demand live refresh, twelve runnable analysis skills, and a command input that sends messages to Claude.</h2>
+
+<div style="background:#070e1a;border:1px solid rgba(56,212,245,.3);border-radius:16px;padding:20px;box-shadow:0 0 28px rgba(56,212,245,.12),inset 0 0 80px rgba(56,212,245,.03);color:#dff3fc;">
+
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px;">
+    <div>
+      <p class="hud" style="font-size:10px;color:#38d4f5;margin:0 0 6px;">Encourt // ops console</p>
+      <p style="font-size:22px;font-weight:500;margin:0;color:#eaf9ff;display:flex;align-items:center;gap:10px;"><span style="width:12px;height:12px;border-radius:50%;border:2px solid #38d4f5;box-shadow:0 0 10px rgba(56,212,245,.7);display:inline-block;"></span>Command deck</p>
+      <p style="font-size:13px;color:#7fa8c0;margin:4px 0 0;">{{DATE_LINE}}</p>
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+      <span class="hud" style="display:flex;align-items:center;gap:6px;font-size:10px;color:#3ef5a8;"><span style="width:7px;height:7px;border-radius:50%;background:#3ef5a8;box-shadow:0 0 8px rgba(62,245,168,.8);animation:pulse 2s infinite;"></span>session live</span>
+      <button data-p="Refresh the command deck with live numbers: light Playtomic benefits pull for member counts, BSport only if its snapshot is over 2 days old, then re-render the deck." style="white-space:nowrap;background:rgba(56,212,245,.12);border:1px solid rgba(56,212,245,.5);color:#38d4f5;border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;"><i class="ti ti-refresh" style="font-size:14px;vertical-align:-2px;margin-right:6px;" aria-hidden="true"></i>Refresh live numbers</button>
+    </div>
+  </div>
+
+  <div style="background:#0b1626;border:1px solid rgba(56,212,245,.25);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-family:var(--font-mono);font-size:12px;line-height:1.9;color:#8fd7ec;">
+    {{CONSOLE_LINES}}
+  </div>
+
+  <div style="display:flex;gap:8px;margin-bottom:10px;">
+    <input id="cmd" type="text" placeholder="Why is occupancy down on weekday evenings?" aria-label="Command input" style="flex:1;background:#0b1626;border:1px solid rgba(56,212,245,.35);color:#dff3fc;border-radius:8px;padding:10px 14px;font-size:14px;outline:none;" />
+    <button id="cmd-btn" style="white-space:nowrap;background:rgba(56,212,245,.16);border:1px solid rgba(56,212,245,.6);color:#38d4f5;border-radius:8px;padding:10px 18px;font-size:13px;font-weight:500;cursor:pointer;">Send</button>
+  </div>
+
+  <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:18px;">
+    <button class="chip" data-p="How did we do this week vs the Year One budget?">This week vs budget</button>
+    <button class="chip" data-p="Who has lapsed since the last win-back run?">New lapses</button>
+    <button class="chip" data-p="Build tomorrow's pure pay-to-play desk sheet">Tomorrow's P2P sheet</button>
+    <button class="chip" data-p="Who failed a payment recently, across Playtomic and BSport?">Failed payments</button>
+    <button class="chip" data-p="Run the vault-sync skill to close out this session and commit">Sync vault + commit</button>
+  </div>
+
+  <div style="border-top:1px solid rgba(56,212,245,.15);padding-top:14px;">
+    <p class="hud" style="font-size:10px;color:#5f93ad;margin:0 0 8px;">Snapshot readings — tile click drills in · refresh pulls live</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:18px;">
+      <div class="tile" data-p="Run the revenue-kpi-review skill" role="button" tabindex="0">
+        <p class="lbl">North star</p>
+        <p class="val">{{NORTH_STAR}}<span style="font-size:13px;color:#7fa8c0;">/mo net</span></p>
+        <p class="sub">≈ {{NORTH_STAR_WEEKLY}} net per week</p>
+      </div>
+      <div class="tile" data-p="Run the member-census skill for fresh tier counts vs milestones" role="button" tabindex="0">
+        <p class="lbl">{{MEMBERS_LABEL}}</p>
+        <p class="val">{{MEMBERS_VAL}}</p>
+        <p class="sub" style="{{MEMBERS_SUB_STYLE}}">{{MEMBERS_SUB}}</p>
+      </div>
+      <div class="tile" data-p="Run the teamup-pilates-pull skill for a fresh Pilates read" role="button" tabindex="0">
+        <p class="lbl">{{PILATES_LABEL}}</p>
+        <p class="val">{{PILATES_VAL}}</p>
+        <p class="sub" style="{{PILATES_SUB_STYLE}}">{{PILATES_SUB}}</p>
+      </div>
+      <div class="tile" data-p="{{OCC_PROMPT}}" role="button" tabindex="0">
+        <p class="lbl">{{OCC_LABEL}}</p>
+        <p class="val">{{OCC_VAL}}</p>
+        <p class="sub">peak · off-peak targets</p>
+      </div>
+    </div>
+  </div>
+
+  <div style="border-top:1px solid rgba(56,212,245,.15);padding-top:14px;">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:8px;">
+      <p class="hud" style="font-size:10px;color:#38d4f5;margin:0;">Skills</p>
+      <p style="font-size:11px;color:#5f93ad;margin:0;">12 armed · click to run · nothing runs on a timer</p>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;">
+      <div class="sk" data-p="Run the revenue-kpi-review skill" role="button" tabindex="0">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><span class="skn"><i class="ti ti-chart-bar" style="font-size:17px;color:#38d4f5;" aria-hidden="true"></i>Revenue KPI review</span><span class="cad">weekly-ish</span></div>
+        <p class="skd">Real numbers vs the Y1 budget, flags + brief</p>
+      </div>
+      <div class="sk" data-p="Run the member-census skill" role="button" tabindex="0">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><span class="skn"><i class="ti ti-users" style="font-size:17px;color:#38d4f5;" aria-hidden="true"></i>Member census</span><span class="cad">month-end</span></div>
+        <p class="skd">Live tier counts vs milestone table</p>
+      </div>
+      <div class="sk" data-p="Run the churn-conversion-monitor skill" role="button" tabindex="0">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><span class="skn"><i class="ti ti-refresh" style="font-size:17px;color:#38d4f5;" aria-hidden="true"></i>Churn + conversion</span><span class="cad">weekly-ish</span></div>
+        <p class="skd">Intro funnel, true conversion %, new lapses</p>
+      </div>
+      <div class="sk" data-p="Run the lapsed-winback-call-sheet skill" role="button" tabindex="0">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><span class="skn"><i class="ti ti-phone" style="font-size:17px;color:#38d4f5;" aria-hidden="true"></i>Lapsed win-back</span><span class="cad">on demand</span></div>
+        <p class="skd">Fresh lapsed list + graduation-pitch call sheet</p>
+      </div>
+      <div class="sk" data-p="Run the purep2p-desk-sheet skill for tomorrow" role="button" tabindex="0">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><span class="skn"><i class="ti ti-clipboard-list" style="font-size:17px;color:#38d4f5;" aria-hidden="true"></i>Pure P2P desk sheet</span><span class="cad">on demand</span></div>
+        <p class="skd">Top pay-to-play targets for the desk, one PDF</p>
+      </div>
+      <div class="sk" data-p="Run the teamup-pilates-pull skill" role="button" tabindex="0">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><span class="skn"><i class="ti ti-activity" style="font-size:17px;color:#38d4f5;" aria-hidden="true"></i>Pilates pull</span><span class="cad">weekly-ish</span></div>
+        <p class="skd">Per-person subs, failed payments, class fill</p>
+      </div>
+      <div class="sk" data-p="Run the occupancy-drop-diagnosis skill" role="button" tabindex="0">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><span class="skn"><i class="ti ti-search" style="font-size:17px;color:#38d4f5;" aria-hidden="true"></i>Occupancy diagnosis</span><span class="cad">when red</span></div>
+        <p class="skd">Root-cause any occupancy or court-fee drop</p>
+      </div>
+      <div class="sk" data-p="Run the playtomic-live-pull skill to refresh Playtomic data" role="button" tabindex="0">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><span class="skn"><i class="ti ti-database" style="font-size:17px;color:#38d4f5;" aria-hidden="true"></i>Playtomic live pull</span><span class="cad">plumbing</span></div>
+        <p class="skd">Fresh backend data with every API trap encoded</p>
+      </div>
+      <div class="sk" data-p="Run the competitor-social-refresh skill" role="button" tabindex="0">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><span class="skn"><i class="ti ti-eye" style="font-size:17px;color:#38d4f5;" aria-hidden="true"></i>Competitor social</span><span class="cad">fortnightly-ish</span></div>
+        <p class="skd">Racketeer, Padium + rivals vs our own account</p>
+      </div>
+      <div class="sk" data-p="Run the xero-cost-actuals skill" role="button" tabindex="0">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><span class="skn"><i class="ti ti-receipt" style="font-size:17px;color:#38d4f5;" aria-hidden="true"></i>Xero cost actuals</span><span class="cad">month-end</span></div>
+        <p class="skd">Costs vs cost guardrail, P&amp;L vs the Y1 net target</p>
+      </div>
+      <div class="sk" data-p="Run the intro-rebuy-refund-run skill" role="button" tabindex="0">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><span class="skn"><i class="ti ti-cash" style="font-size:17px;color:#38d4f5;" aria-hidden="true"></i>Intro re-buy refunds</span><span class="cad">weekly-ish</span></div>
+        <p class="skd">New re-buyers since 23 Jul + wallet refund each</p>
+      </div>
+      <div class="sk" data-p="Run the vault-sync skill to fold facts into the vault, refresh Daily Focus and commit" role="button" tabindex="0">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;"><span class="skn"><i class="ti ti-book" style="font-size:17px;color:#b39df5;" aria-hidden="true"></i>Vault sync</span><span class="cad">close-out</span></div>
+        <p class="skd">Fold facts into Obsidian, Daily Focus, commit</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const inp=document.getElementById('cmd');
+function go(){const v=inp.value.trim();if(v){sendPrompt(v);inp.value='';}}
+document.getElementById('cmd-btn').addEventListener('click',go);
+inp.addEventListener('keydown',e=>{if(e.key==='Enter')go();});
+document.querySelectorAll('[data-p]').forEach(el=>{
+  el.addEventListener('click',()=>sendPrompt(el.dataset.p));
+  el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();sendPrompt(el.dataset.p);}});
+});
+</script>

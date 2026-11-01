@@ -1,0 +1,13 @@
+{
+  "windowMin": 30,
+  "levelRule": "strict",
+  "minLeadMin": 15,
+  "pollIntervalSec": 300,
+  "pollJitterSec": 45,
+  "lookaheadDays": [0, 1],
+  "proposalCooldownHours": 6,
+  "maxProposalsPerPlayerPerDay": 1,
+  "quietHours": { "start": "21:30", "end": "08:30", "tz": "Europe/London" },
+  "requestTimeoutMs": 20000,
+  "_note": "±30 min + strict level-fit are LOCKED (Krish 10 Aug). Mode (PILOT/AUTO) lives in state.json and fails closed to PILOT. Sending stays disabled until the writer gate is met."
+}

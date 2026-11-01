@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.encourt.matchmaker.daemon</string>
+  <!-- runs ONE poll then exits; launchd re-runs it every 5 minutes (robust: no long-lived loop) -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/bin/node</string>
+    <string>/path/to/encourt-ai/matchmaker/daemon.js</string>
+    <string>--once</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/path/to/encourt-ai/matchmaker</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>StartInterval</key>
+  <integer>300</integer>
+  <key>StandardOutPath</key>
+  <string>/tmp/matchmaker-daemon.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/matchmaker-daemon.err</string>
+</dict>
+</plist>

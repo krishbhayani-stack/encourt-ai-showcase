@@ -1,0 +1,2249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ENCOURT // J.A.R.V.I.S</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='13' fill='none' stroke='%237ff7d4' stroke-width='2'/%3E%3Ccircle cx='16' cy='16' r='8' fill='none' stroke='%237ff7d4' stroke-width='1'/%3E%3Ccircle cx='16' cy='16' r='4' fill='%237ff7d4'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Quicksand:wght@300;500&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  /* ---- palette straight off the film-HUD frames ---- */
+  :root {
+    --bg: #050B14;
+    --bg2: #06101B;
+    --glass: rgba(10, 26, 36, .55);
+    --line: rgba(42, 74, 82, .4);
+    --mint: #7FF7D4;
+    --mint-dim: rgba(127, 247, 212, .5);
+    --mint-faint: rgba(127, 247, 212, .13);
+    --teal: #35E0C2;
+    --text: #E6F1F2;
+    --dim: #5E7C86;
+    --sec: #6E8B94;
+    --amber: #F0B24E;
+    --amber-chip: #FFB84D;
+    --red: #FF4B4B;
+    --good: #5CF5A9;
+    --purple: #B39DF5;
+    --mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, Menlo, monospace;
+    --hero: "Quicksand", "Comfortaa", "Helvetica Neue", sans-serif;
+  }
+
+  html, body { height: 100%; }
+
+  body {
+    background: radial-gradient(ellipse 120% 90% at 50% 40%, var(--bg2), var(--bg) 70%);
+    color: var(--text);
+    font-family: var(--mono);
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* ambient glow + scanlines + vignette — the "projected glass" texture */
+  body::before {
+    content: "";
+    position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(ellipse 62% 46% at 50% 44%, rgba(127, 247, 212, .05), transparent 62%),
+      radial-gradient(ellipse 80% 36% at 50% -6%, rgba(53, 224, 194, .04), transparent 60%);
+  }
+  body::after {
+    content: "";
+    position: fixed; inset: 0; pointer-events: none; z-index: 55;
+    background:
+      repeating-linear-gradient(0deg, rgba(0, 0, 0, .1) 0 1px, transparent 1px 3px),
+      radial-gradient(ellipse at center, transparent 58%, rgba(0, 8, 16, .5) 100%);
+    opacity: .28;   /* the film's ground is near-clean — texture stays a whisper */
+  }
+
+  /* ---------- viewport corner brackets ---------- */
+  .corners i { position: fixed; width: 38px; height: 38px; border: 0 solid rgba(230, 241, 242, .32); z-index: 56; pointer-events: none; }
+  .corners i:nth-child(1) { top: 14px; left: 16px; border-top-width: 1px; border-left-width: 1px; }
+  .corners i:nth-child(2) { top: 14px; right: 16px; border-top-width: 1px; border-right-width: 1px; }
+  .corners i:nth-child(3) { bottom: 14px; left: 16px; border-bottom-width: 1px; border-left-width: 1px; }
+  .corners i:nth-child(4) { bottom: 14px; right: 16px; border-bottom-width: 1px; border-right-width: 1px; }
+
+  /* ---------- boot sequence ---------- */
+  .boot { position: fixed; inset: 0; z-index: 90; background: var(--bg);
+          display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
+  body.ready .boot { display: none; }
+  .boot-ring { width: 74px; height: 74px; border-radius: 50%; position: relative;
+               border: 1px solid var(--mint-dim); animation: bootspin 1.1s linear infinite; }
+  .boot-ring::before { content: ""; position: absolute; inset: -1px; border-radius: 50%;
+                       border: 1px solid transparent; border-top-color: var(--mint); }
+  .boot-ring::after { content: ""; position: absolute; inset: 30px; border-radius: 50%;
+                      background: radial-gradient(circle, #fff, var(--mint) 60%, transparent 80%); }
+  @keyframes bootspin { to { transform: rotate(360deg); } }
+  .boot-lines { font-size: 10px; letter-spacing: .3em; text-transform: uppercase; color: var(--mint-dim);
+                text-align: center; line-height: 2.1; min-height: 66px; }
+  .boot-lines b { color: var(--mint); font-weight: 500; text-shadow: 0 0 12px rgba(127,247,212,.5); }
+
+  .hud { position: relative; z-index: 1; height: 100dvh; display: flex; flex-direction: column;
+         padding: 20px 30px 14px; gap: 4px; opacity: 0; }
+  body.ready .hud { opacity: 1; transition: opacity .4s ease-out; }
+  body.ready .stagger { animation: rise .55s ease-out both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: none; } }
+
+  /* ---------- header ---------- */
+  .hud-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-shrink: 0; }
+  .brand { position: relative; display: flex; align-items: flex-start; gap: 12px; min-width: 0; padding: 6px 0 0 10px; }
+  .brand::before { content: ""; position: absolute; top: 0; left: 0; width: 16px; height: 16px;
+                   border-top: 1px solid rgba(230,241,242,.4); border-left: 1px solid rgba(230,241,242,.4); }
+  .brand svg { flex-shrink: 0; margin-top: 1px; filter: drop-shadow(0 0 6px rgba(127,247,212,.5)); }
+  .wordmark { font-weight: 700; font-size: 20px; letter-spacing: .34em; color: var(--text);
+              text-shadow: 0 0 16px rgba(127,247,212,.4); white-space: nowrap; }
+  .wordsub { font-size: 8px; letter-spacing: .3em; text-transform: uppercase; color: var(--dim); margin-top: 5px; white-space: nowrap; }
+
+  .top-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; max-width: 360px; }
+  .iconbox { width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center;
+             background: transparent; border: 1px solid rgba(110,139,148,.5); color: var(--mint);
+             font-family: var(--mono); font-size: 11px; line-height: 1; cursor: pointer; margin-bottom: 3px;
+             transition: box-shadow .15s, border-color .15s; }
+  .iconbox:hover { border-color: var(--mint-dim); box-shadow: 0 0 10px rgba(127,247,212,.25); }
+  .readout { display: flex; align-items: center; gap: 10px; font-size: 10px; letter-spacing: .18em; text-transform: uppercase; }
+  .readout span { color: var(--dim); }
+  .readout b { font-weight: 500; color: var(--mint); text-shadow: 0 0 10px rgba(127,247,212,.4); min-width: 128px; text-align: left; }
+  .readout .chip { display: inline-block; min-width: 128px; text-align: center; color: var(--amber-chip);
+                   background: rgba(96, 64, 16, .4); border: 1px solid rgba(240,178,78,.5); border-radius: 2px;
+                   padding: 2px 8px; font-weight: 500; letter-spacing: .16em;
+                   text-shadow: 0 0 10px rgba(255,184,77,.55); }
+  .briefing { margin-top: 8px; font-size: 9.5px; line-height: 1.7; letter-spacing: .02em; color: var(--sec);
+              text-align: right; max-width: 340px; }
+  .briefing .hl { color: var(--mint); text-shadow: 0 0 8px rgba(127,247,212,.35); }
+  .vault { display: inline-flex; align-items: center; gap: 6px; font-size: 9px; letter-spacing: .08em; color: var(--dim); margin-top: 5px; cursor: default; }
+  .vault .vdot { width: 5px; height: 5px; border-radius: 50%; background: var(--dim); box-shadow: 0 0 6px currentColor; }
+  .vault.ok   { color: var(--good); }  .vault.ok .vdot   { background: var(--good); }
+  .vault.warn { color: var(--amber); } .vault.warn .vdot { background: var(--amber); }
+  .vault.bad  { color: var(--red); }   .vault.bad .vdot  { background: var(--red); animation: vpulse 1s infinite; }
+  @keyframes vpulse { 50% { opacity: .3; } }
+
+  /* ---------- main grid — rails start LOWER than the header, like the glass ---------- */
+  .hud-main { display: grid; grid-template-columns: minmax(255px, 17.5%) 1fr minmax(285px, 19.5%); gap: 24px; flex: 1; min-height: 0; }
+  /* film stagger: comm log starts ~28% down, workshop marginally LOWER (~30%) */
+  .rail-left  { display: flex; flex-direction: column; min-height: 0; padding-top: 7vh; }
+  .rail-right { display: flex; flex-direction: column; min-height: 0; padding-top: 8.5vh; }
+
+  /* ---------- panels ---------- */
+  .panel { position: relative; display: flex; flex-direction: column; flex: 1; min-height: 0;
+           border: 1px solid var(--line); background: var(--glass); overflow: visible; }
+  /* bracket notch top-left + stepped bracket bottom-right, outside the border */
+  .panel::before { content: ""; position: absolute; top: -4px; left: -4px; width: 17px; height: 17px;
+                   border-top: 1px solid var(--mint-dim); border-left: 1px solid var(--mint-dim); pointer-events: none; }
+  /* stepped staircase bracket bottom-right, the classic sci-fi step */
+  .panel::after { content: ""; position: absolute; bottom: -4px; right: -4px; width: 26px; height: 26px; pointer-events: none;
+    background:
+      linear-gradient(var(--mint-dim), var(--mint-dim)) right 0 bottom 0 / 26px 1px,
+      linear-gradient(var(--mint-dim), var(--mint-dim)) right 0 bottom 0 / 1px 26px,
+      linear-gradient(var(--mint-dim), var(--mint-dim)) right 8px bottom 8px / 11px 1px,
+      linear-gradient(var(--mint-dim), var(--mint-dim)) right 8px bottom 8px / 1px 11px;
+    background-repeat: no-repeat; }
+  .panel-inner { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+
+  .panel-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px 9px;
+                border-bottom: 1px solid var(--line); flex-shrink: 0; }
+  .ph-name { font-size: 10px; letter-spacing: .26em; text-transform: uppercase; color: var(--mint);
+             text-shadow: 0 0 10px rgba(127,247,212,.4); }
+  .ph-spacer { flex: 1; }
+  .ph-pill { font-size: 8px; letter-spacing: .18em; color: var(--teal); border: 1px solid rgba(53,224,194,.45);
+             border-radius: 999px; padding: 2px 9px; visibility: hidden; }
+  .ph-pill.on { visibility: visible; }
+  .ph-count { font-size: 10px; letter-spacing: .1em; color: var(--text); opacity: .85; }
+  .ph-link { background: none; border: none; font-family: var(--mono); font-size: 9px; letter-spacing: .2em;
+             text-transform: uppercase; color: var(--sec); cursor: pointer; padding: 2px 0; }
+  .ph-link:hover { color: var(--mint); text-shadow: 0 0 8px rgba(127,247,212,.5); }
+  .ph-live { font-size: 9px; letter-spacing: .2em; color: var(--mint); }
+  .ph-live::before { content: "● "; animation: vpulse 1.6s infinite; }
+
+  /* ---------- comm log ---------- */
+  .log { flex: 1 1 auto; min-height: 80px; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 9px;
+         scrollbar-width: thin; scrollbar-color: rgba(127,247,212,.3) transparent; }
+  .log::-webkit-scrollbar { width: 7px; }
+  .log::-webkit-scrollbar-thumb { background: rgba(127,247,212,.2); }
+
+  .turn-user { align-self: stretch; background: rgba(70, 50, 10, .4); border-left: 3px solid #E9A23B;
+               border-radius: 2px; padding: 7px 11px 8px; font-size: 12px; line-height: 1.55;
+               color: #FFE9B0; white-space: pre-wrap; overflow-wrap: break-word; }
+  .turn-user::before { content: "KRISH"; display: block; font-size: 8px; letter-spacing: .28em; color: #E9A23B; margin-bottom: 4px; }
+
+  .reply { align-self: stretch; display: flex; flex-direction: column; gap: 6px;
+           background: rgba(30, 70, 80, .35); border-left: 3px solid #59F2D2; border-radius: 2px; padding: 7px 11px 8px; }
+  .reply .who { font-size: 8px; letter-spacing: .28em; text-transform: uppercase; color: #59D6BE; }
+  .turn-deck { font-size: 12px; line-height: 1.6; color: #DFFFF7; white-space: pre-wrap; overflow-wrap: break-word; }
+  .turn-deck.streaming::after { content: "▌"; color: var(--mint); animation: caret .85s steps(1) infinite; }
+  @keyframes caret { 50% { opacity: 0; } }
+
+  .speak-block { border: 1px solid var(--mint-faint); background: rgba(127,247,212,.05); padding: 8px 11px; }
+  .speak-h { font-size: 8px; letter-spacing: .26em; text-transform: uppercase; color: var(--mint); opacity: .85; margin-bottom: 6px; }
+  .bullet { position: relative; font-size: 11.5px; line-height: 1.55; padding-left: 15px; margin: 3px 0; }
+  .bullet::before { content: "▹"; position: absolute; left: 0; color: var(--mint); }
+
+  .line-tool, .line-sys { align-self: flex-start; font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
+  .line-sys { color: var(--mint); opacity: .7; }
+  .line-work { align-self: flex-start; font-size: 9.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--amber); }
+  .line-err { align-self: flex-start; font-size: 11px; color: var(--red); }
+
+  .tasklog { display: none; flex-direction: column; gap: 9px; }
+  .tasklog.active { display: flex; }
+
+  /* ---------- task tabs ---------- */
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; flex-shrink: 0; padding: 8px 12px 0; max-height: 112px; overflow-y: auto;
+          scrollbar-width: thin; scrollbar-color: rgba(127,247,212,.3) transparent; }
+  .tabs:empty { display: none; }
+  .task-tab { display: inline-flex; align-items: center; gap: 7px; background: rgba(127,247,212,.05);
+              border: 1px solid var(--mint-faint); color: var(--sec); font-family: var(--mono);
+              font-size: 10px; letter-spacing: .05em; padding: 4px 10px; cursor: pointer;
+              transition: box-shadow .15s, background .15s; }
+  .task-tab:hover { box-shadow: 0 0 12px rgba(127,247,212,.2); }
+  .task-tab.active { color: var(--mint); border-color: var(--mint-dim); background: rgba(127,247,212,.1); }
+  .task-tab .tg { width: 11px; text-align: center; font-size: 9px; flex-shrink: 0; }
+  .task-tab .tg.running { color: var(--good); animation: vpulse 1s infinite; }
+  .task-tab .tg.done { color: var(--good); }
+  .task-tab .tg.error { color: var(--red); }
+  .task-tab .tg.stopped { color: var(--dim); }
+  .task-tab .tt { max-width: 158px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .task-tab .tx { color: var(--dim); padding-left: 3px; font-size: 12px; line-height: 1; }
+  .task-tab .tx:hover { color: var(--red); }
+
+  /* ---------- next actions ---------- */
+  .nextrow { border: 1px solid rgba(179,157,245,.3); background: rgba(179,157,245,.05); padding: 8px 11px; }
+  .next-h { font-size: 8px; letter-spacing: .26em; text-transform: uppercase; color: var(--purple); margin-bottom: 6px; }
+  .next-btn { display: block; width: 100%; text-align: left; background: rgba(179,157,245,.07);
+              border: 1px solid rgba(179,157,245,.35); color: var(--text); font-family: var(--mono);
+              font-size: 11px; line-height: 1.45; padding: 6px 10px; margin: 4px 0; cursor: pointer;
+              transition: box-shadow .15s, background .15s; }
+  .next-btn:hover { background: rgba(179,157,245,.15); box-shadow: 0 0 12px rgba(179,157,245,.3); }
+
+  /* ---------- rich brief blocks ---------- */
+  .turn-deck.rich { white-space: normal; }
+  .rb-h2, .rb-h3 { color: var(--mint); letter-spacing: .18em; text-transform: uppercase; margin: 9px 0 4px; text-shadow: 0 0 10px rgba(127,247,212,.3); }
+  .rb-h2 { font-size: 13px; } .rb-h3 { font-size: 12px; }
+  .rb-p { margin: 2px 0; }
+  .rb-bullet { position: relative; padding-left: 15px; margin: 2px 0; }
+  .rb-bullet::before { content: "▹"; position: absolute; left: 0; color: var(--mint); }
+  .rb-num { display: flex; gap: 8px; margin: 2px 0; }
+  .rb-num .rb-n { color: var(--mint); flex-shrink: 0; }
+  .rb-num .rb-nt { flex: 1; min-width: 0; overflow-wrap: break-word; }
+  .rb-hr { height: 1px; background: linear-gradient(90deg, rgba(127,247,212,.35), transparent); margin: 8px 0; }
+  .rb-space { height: 6px; }
+  .rb-live { margin: 2px 0; }
+  .rb-live::after { content: "▌"; color: var(--mint); animation: caret .85s steps(1) infinite; }
+  .rb-b { font-weight: 700; color: #C8FBEF; }
+  .rb-code { font-family: var(--mono); background: rgba(127,247,212,.08); padding: 1px 5px; }
+  .rb-file { color: var(--mint); text-decoration: underline dotted; text-underline-offset: 3px; cursor: pointer; }
+  .rb-file:hover { text-shadow: 0 0 8px rgba(127,247,212,.5); }
+
+  /* ---------- deliverable cards ---------- */
+  .filesrow { border: 1px solid var(--mint-faint); background: rgba(127,247,212,.04); padding: 8px 11px; }
+  .files-h { font-size: 8px; letter-spacing: .26em; text-transform: uppercase; color: var(--mint); opacity: .85; margin-bottom: 6px; }
+  .file-card { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 5px 0; padding: 7px 10px;
+               border: 1px solid var(--mint-faint); background: rgba(127,247,212,.04);
+               transition: box-shadow .15s, background .15s; }
+  .file-card:hover { background: rgba(127,247,212,.08); box-shadow: 0 0 14px rgba(127,247,212,.2); }
+  .fc-glyph { font-size: 15px; color: var(--mint); flex-shrink: 0; text-shadow: 0 0 8px rgba(127,247,212,.4); }
+  .fc-info { flex: 1; min-width: 120px; }
+  .fc-name { font-size: 11.5px; font-weight: 700; color: var(--text); overflow-wrap: break-word; }
+  .fc-desc { font-size: 10px; color: var(--sec); line-height: 1.4; }
+  .fc-btns { display: flex; gap: 6px; flex-shrink: 0; }
+  .fc-btn { background: rgba(127,247,212,.07); border: 1px solid rgba(127,247,212,.35); color: var(--mint);
+            font-family: var(--mono); font-size: 9px; letter-spacing: .14em; text-transform: uppercase;
+            padding: 4px 10px; cursor: pointer; transition: box-shadow .15s, background .15s; }
+  .fc-btn:hover { background: rgba(127,247,212,.15); box-shadow: 0 0 10px rgba(127,247,212,.3); }
+  .fc-err { display: none; width: 100%; font-size: 10px; color: var(--red); }
+
+  /* ---------- centre stage: the reactor ---------- */
+  .stage { display: flex; flex-direction: column; align-items: center; justify-content: center;
+           gap: 11px; min-height: 0; min-width: 0; position: relative; }
+
+  .reactor { position: relative; width: 340px; height: 340px; flex-shrink: 0; }
+  .reactor > div { position: absolute; border-radius: 50%; }
+  /* 1 — bezel tick ring (outermost) */
+  .r-ticks { inset: 0;
+    background: repeating-conic-gradient(var(--mint-dim) 0deg .6deg, transparent .6deg 6deg);
+    -webkit-mask: radial-gradient(circle closest-side, transparent 0 93%, #000 94% 99.5%, transparent 100%);
+    mask: radial-gradient(circle closest-side, transparent 0 93%, #000 94% 99.5%, transparent 100%);
+    animation: spin 70s linear infinite; opacity: .8; }
+  /* 1b — sparse long double-ticks */
+  .r-ticks2 { inset: 0;
+    background: repeating-conic-gradient(rgba(127,247,212,.65) 0deg 1deg, transparent 1deg 28deg,
+      rgba(127,247,212,.65) 28deg 29deg, transparent 29deg 90deg);
+    -webkit-mask: radial-gradient(circle closest-side, transparent 0 89.5%, #000 90.5% 99.5%, transparent 100%);
+    mask: radial-gradient(circle closest-side, transparent 0 89.5%, #000 90.5% 99.5%, transparent 100%);
+    animation: spin 70s linear infinite; }
+  /* 2 — segmented arc ring: thin (~2px) BRIGHT arcs, like the film */
+  .r-seg { inset: 6.5%;
+    background: conic-gradient(from 15deg, rgba(127,247,212,.9) 0 34deg, transparent 34deg 52deg,
+      rgba(127,247,212,.55) 52deg 130deg, transparent 130deg 165deg,
+      rgba(127,247,212,.9) 165deg 245deg, transparent 245deg 288deg,
+      rgba(127,247,212,.55) 288deg 342deg, transparent 342deg 360deg);
+    -webkit-mask: radial-gradient(circle closest-side, transparent 0 95.5%, #000 96.5% 98.2%, transparent 99%);
+    mask: radial-gradient(circle closest-side, transparent 0 95.5%, #000 96.5% 98.2%, transparent 99%);
+    animation: spin 24s linear infinite reverse; }
+  /* 3 — fine dashed ring */
+  .r-dash { inset: 13.5%; border: 1px dashed var(--mint-dim); animation: spin 40s linear infinite; opacity: .5; }
+  /* 5 — gear-tooth iris around the core */
+  .r-teeth { inset: 26%;
+    background: repeating-conic-gradient(rgba(127,247,212,.75) 0deg 1.4deg, transparent 1.4deg 5.4deg);
+    -webkit-mask: radial-gradient(circle closest-side, transparent 0 74%, #000 76% 96%, transparent 100%);
+    mask: radial-gradient(circle closest-side, transparent 0 74%, #000 76% 96%, transparent 100%);
+    animation: spin 50s linear infinite reverse; opacity: .85; }
+  .r-halo { inset: 24%; background: radial-gradient(circle, rgba(127,247,212,.3) 0%, transparent 66%); filter: blur(2px); }
+  /* 6 — the core */
+  .r-core { inset: 36%;
+    background: radial-gradient(circle, #FFFFFF 0%, #BFFFEA 32%, #46E3C0 58%, rgba(30,126,110,.12) 82%);
+    box-shadow: 0 0 46px rgba(70,227,192,.7), 0 0 120px rgba(30,126,110,.35);
+    animation: core 3s ease-in-out infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @keyframes core { 0%, 100% { opacity: .94; } 50% { opacity: .6; } }
+
+  /* 4 — audio-spectrum fan: 44 radial bars, GPU-only (rotate + translate + scaleY) */
+  .viz { position: absolute; inset: 0; border-radius: 50%; }
+  .viz span { position: absolute; left: calc(50% - 1.1px); bottom: 50%; width: 2.2px; height: 26px;
+              background: var(--mint-dim); opacity: .4; transform-origin: 50% 100%;
+              transform: rotate(var(--a, 0deg)) translateY(var(--r, -58px)) scaleY(.16);
+              animation: bar 1.6s ease-in-out infinite; animation-play-state: paused; }
+  @keyframes bar {
+    0%, 100% { transform: rotate(var(--a, 0deg)) translateY(var(--r, -58px)) scaleY(.16); }
+    50%      { transform: rotate(var(--a, 0deg)) translateY(var(--r, -58px)) scaleY(var(--s, .7)); } }
+  body.listening .viz span { background: var(--mint); animation-play-state: running; opacity: .85; }
+  body.armed .viz span { background: var(--amber); animation-play-state: running; opacity: 1; animation-duration: 1s; }
+  body.speaking .viz span { background: var(--mint); animation-play-state: running; opacity: 1; animation-duration: .7s; }
+  body.hearing .viz span { background: var(--good); animation-play-state: running; opacity: 1; animation-duration: .55s; }
+
+  body.listening .r-core { animation-duration: 1.5s; }
+  body.speaking .r-core { animation-duration: .65s; }
+  body.hearing .r-core { box-shadow: 0 0 52px rgba(92,245,169,.75), 0 0 120px rgba(92,245,169,.3);
+    background: radial-gradient(circle, #F0FFF8 0%, #B9FFDF 32%, var(--good) 58%, rgba(92,245,169,.1) 82%); animation-duration: .65s; }
+  body.armed .r-core { box-shadow: 0 0 52px rgba(240,178,78,.75), 0 0 120px rgba(240,178,78,.3);
+    background: radial-gradient(circle, #FFF8E4 0%, #FFE9AD 32%, var(--amber) 58%, rgba(240,178,78,.1) 82%); animation-duration: .8s; }
+
+  /* ---------- state stack under the reactor ----------
+     Film hierarchy: LISTENING/STANDBY show ONLY the mint state word + tiny helper;
+     the two-line "J.A.R.V.I.S over RESPONDING" form appears only while responding. */
+  .state { text-align: center; }
+  .state-name { display: none; font-size: 12px; font-weight: 700; letter-spacing: .5em; color: var(--mint);
+                text-transform: uppercase; padding-left: .5em; text-shadow: 0 0 14px rgba(127,247,212,.45); }
+  body.speaking .state-name { display: block; }
+  .state-main { font-size: 12px; font-weight: 700; letter-spacing: .42em; color: var(--mint); text-transform: uppercase;
+                margin-top: 6px; padding-left: .42em; text-shadow: 0 0 14px rgba(127,247,212,.45); }
+  body.speaking .state-main { font-size: 9px; font-weight: 400; letter-spacing: .3em; color: var(--sec); text-shadow: none; }
+  body.hearing .state-main { color: var(--good); }
+  body.armed .state-main { color: var(--amber); }
+  .state-sub { font-size: 8.5px; letter-spacing: .3em; color: var(--dim); text-transform: uppercase; margin-top: 6px; padding-left: .3em; }
+
+  /* chevrons sit OUTSIDE the button border, like the glass */
+  .engage-row { display: inline-flex; align-items: center; gap: 10px; }
+  .engage-row .chev { font-size: 14px; color: var(--red); opacity: .8; text-shadow: 0 0 8px rgba(255,75,75,.4); }
+  .engage-row:has(.engage.muted) .chev { color: var(--mint); text-shadow: 0 0 8px rgba(127,247,212,.4); }
+  .engage { display: inline-flex; align-items: center; font-family: var(--mono); font-weight: 700;
+            font-size: 10.5px; letter-spacing: .34em; text-transform: uppercase; padding: 8px 20px 8px 24px;
+            cursor: pointer; transition: box-shadow .15s, background .15s;
+            color: var(--red); border: 1px solid rgba(122,32,32,.9); background: rgba(80,15,15,.3);
+            text-shadow: 0 0 10px rgba(255,75,75,.5); }
+  .engage:hover { box-shadow: 0 0 18px rgba(255,75,75,.3); background: rgba(80,15,15,.5); }
+  .engage.muted { color: var(--mint); border-color: var(--mint-dim); background: rgba(127,247,212,.05);
+                  text-shadow: 0 0 10px rgba(127,247,212,.5); }
+  .engage.muted:hover { box-shadow: 0 0 18px rgba(127,247,212,.3); background: rgba(127,247,212,.12); }
+
+  .pills { display: flex; align-items: center; gap: 8px; }
+  .pill, .wtoggle { display: inline-flex; align-items: center; gap: 7px; border: 1px solid rgba(110,139,148,.4);
+          background: transparent; color: var(--dim); font-family: var(--mono); font-size: 8.5px;
+          letter-spacing: .2em; text-transform: uppercase; padding: 5px 13px; border-radius: 999px; cursor: pointer; }
+  .pill:hover, .wtoggle:hover { color: var(--mint); border-color: var(--mint-dim); box-shadow: 0 0 10px rgba(127,247,212,.18); }
+  #spkBtn.muted { color: var(--red); border-color: rgba(255,75,75,.4); }
+  .wtoggle .sw { width: 22px; height: 11px; border: 1px solid var(--mint-dim); border-radius: 999px; position: relative; flex-shrink: 0; }
+  .wtoggle .sw::after { content: ""; position: absolute; top: 1px; left: 1px; width: 7px; height: 7px; border-radius: 50%;
+                        background: var(--dim); transition: left .15s, background .15s; }
+  .wtoggle.on { color: var(--mint); }
+  .wtoggle.on .sw::after { left: 12px; background: var(--mint); box-shadow: 0 0 8px rgba(127,247,212,.6); }
+
+  .armed-ind { display: none; align-items: center; gap: 7px; color: var(--amber); font-size: 9px; letter-spacing: .22em; text-transform: uppercase; }
+  body.armed .armed-ind { display: inline-flex; }
+  .armed-ind .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--amber); animation: pulse-amber 1s ease-in-out infinite; }
+  @keyframes pulse-amber { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+
+  /* ---------- command bar ---------- */
+  .bar { display: flex; gap: 9px; align-items: stretch; position: relative; width: min(560px, 100%); flex-shrink: 0; }
+  .prompt-mark { display: flex; align-items: center; color: var(--mint); font-size: 14px; padding-left: 2px; text-shadow: 0 0 8px rgba(127,247,212,.6); }
+  .bar input { flex: 1; background: rgba(5, 13, 22, .9); border: 1px solid var(--line); color: var(--text);
+               font-family: var(--mono); font-size: 12.5px; padding: 10px 14px; outline: none; }
+  .bar input::placeholder { color: var(--dim); }
+  .bar input:focus { border-color: var(--mint-dim); box-shadow: 0 0 14px rgba(127,247,212,.15); }
+  .bar button { background: rgba(127,247,212,.1); border: 1px solid var(--mint-dim); color: var(--mint);
+                font-family: var(--mono); font-size: 10px; letter-spacing: .26em; text-transform: uppercase;
+                padding: 0 20px; cursor: pointer; transition: box-shadow .15s, background .15s; }
+  .bar button:hover:not(:disabled) { background: rgba(127,247,212,.2); box-shadow: 0 0 16px rgba(127,247,212,.3); }
+  .bar button:disabled { opacity: .4; cursor: default; }
+
+  /* ---------- listening bubble ---------- */
+  .hearbub { display: none; position: absolute; bottom: calc(100% + 10px); left: 0; right: 0;
+             z-index: 6; background: rgba(4, 16, 14, .96); border: 1px solid rgba(92,245,169,.55);
+             box-shadow: 0 0 22px rgba(92,245,169,.2); padding: 9px 13px; }
+  .hearbub.show { display: block; animation: rise .18s ease-out both; }
+  .hearbub .hb-label { font-size: 8px; letter-spacing: .28em; text-transform: uppercase; color: var(--good); margin-bottom: 5px; }
+  .hearbub .hb-text { font-size: 12.5px; line-height: 1.5; color: var(--text); overflow-wrap: break-word; }
+  .hearbub .hb-hint { display: none; font-size: 9.5px; letter-spacing: .08em; color: var(--amber); margin-top: 6px; text-transform: uppercase; }
+  .hearbub.stale { border-color: rgba(94,124,134,.55); box-shadow: none; cursor: pointer; }
+  .hearbub.stale .hb-label { color: var(--dim); }
+  .hearbub.stale .hb-text { color: var(--sec); }
+  .hearbub.stale .hb-hint { display: block; }
+  .hearbub.stale:hover { border-color: rgba(240,178,78,.6); }
+
+  /* ---------- workshop rail ---------- */
+  .rail-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 10px 12px 12px;
+                 scrollbar-width: thin; scrollbar-color: rgba(127,247,212,.3) transparent; }
+  .rail-scroll::-webkit-scrollbar { width: 7px; }
+  .rail-scroll::-webkit-scrollbar-thumb { background: rgba(127,247,212,.2); }
+
+  .wk-sect { display: flex; align-items: center; gap: 8px; font-size: 8.5px; letter-spacing: .3em;
+             text-transform: uppercase; color: var(--dim); margin: 13px 0 7px; }
+  .wk-sect:first-child { margin-top: 0; }
+  .wk-sect::after { content: ""; flex: 1; height: 1px; background: linear-gradient(90deg, var(--line), transparent); }
+  .wk-sect b { font-weight: 400; color: var(--text); background: rgba(230,241,242,.08);
+               border: 1px solid rgba(230,241,242,.18); border-radius: 3px; padding: 1px 6px; }
+
+  .alerts { display: flex; flex-direction: column; gap: 6px; }
+  .alert-pill { position: relative; background: rgba(60, 40, 10, .35); border: 1px solid rgba(240,178,78,.22);
+                border-left: 2px solid #C98A2E; color: var(--amber); font-size: 10.5px; line-height: 1.5;
+                letter-spacing: .01em; padding: 7px 24px 7px 10px; cursor: pointer;
+                display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+                transition: box-shadow .15s; }
+  .alert-pill:hover { box-shadow: 0 0 12px rgba(240,178,78,.25); -webkit-line-clamp: unset; }
+  .alert-pill .ai { position: absolute; top: 5px; right: 7px; font-size: 8px; color: rgba(240,178,78,.45); }
+  .more-link { background: none; border: none; font-family: var(--mono); font-size: 9px; letter-spacing: .24em;
+               text-transform: uppercase; color: var(--dim); cursor: pointer; padding: 6px 0 0 2px; text-align: left; }
+  .more-link:hover { color: var(--mint); }
+
+  /* readings — etched-glass number tiles */
+  .tiles { display: flex; flex-direction: column; gap: 7px; }
+  .tile { position: relative; background: linear-gradient(160deg, rgba(127,247,212,.06), rgba(127,247,212,.015));
+          border: 1px solid var(--line); border-left: 2px solid var(--tone-c, var(--mint-dim));
+          box-shadow: inset 0 1px 0 rgba(255,255,255,.05), inset 0 -12px 22px rgba(0,16,30,.3);
+          padding: 9px 12px 8px; cursor: pointer; transition: box-shadow .15s, background .15s; }
+  .tile:hover { box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 0 16px rgba(127,247,212,.18); }
+  .tile .t-label { font-size: 8px; letter-spacing: .22em; text-transform: uppercase; color: var(--dim); margin-bottom: 4px; }
+  .tile .t-value { font-family: var(--hero); font-weight: 300; font-size: 27px; letter-spacing: .01em; color: #F4FBFA;
+                   text-shadow: 0 0 9px rgba(127,247,212,.5), 0 0 26px rgba(127,247,212,.22); }
+  .tile .t-unit { font-family: var(--mono); font-size: 10px; color: var(--sec); letter-spacing: 0; }
+  .tile .t-sub { font-size: 9.5px; margin-top: 4px; letter-spacing: .02em; line-height: 1.45; }
+  .tone-neutral { color: var(--sec); } .tone-green { color: var(--good); } .tone-amber { color: var(--amber); } .tone-red { color: var(--red); }
+  .tile[data-tone="green"] { --tone-c: var(--good); } .tile[data-tone="amber"] { --tone-c: var(--amber); } .tile[data-tone="red"] { --tone-c: var(--red); }
+
+  /* docked glass mini-tiles */
+  .dock { display: flex; flex-direction: column; gap: 6px; }
+  .dock:empty { display: none; }
+  .dock-tile { position: relative; text-align: left; background: rgba(6, 16, 27, .8); font-family: var(--mono);
+               border: 1px solid rgba(53,224,194,.5); border-left: 2px solid var(--teal);
+               box-shadow: 0 0 14px rgba(53,224,194,.14); padding: 11px 13px 9px; cursor: pointer;
+               min-height: 96px; transition: box-shadow .15s; }
+  .dock-tile:hover { box-shadow: 0 0 20px rgba(53,224,194,.3); }
+  .dock-tile .dk-t { font-size: 8px; letter-spacing: .24em; text-transform: uppercase; color: var(--teal); margin-bottom: 5px; }
+  .dock-tile .dk-v { font-family: var(--hero); font-weight: 300; font-size: 27px; color: #F4FBFA;
+                     text-shadow: 0 0 10px rgba(127,247,212,.4); }
+  .dock-tile .dk-bars { display: flex; align-items: flex-end; gap: 4px; height: 38px; margin-top: 4px; }
+  .dock-tile .dk-bars i { flex: 1; background: #BFFFEE; box-shadow: 0 0 6px rgba(169,255,233,.5); }
+  .dock-tile .dk-f { font-size: 8.5px; color: var(--sec); text-transform: lowercase; margin-top: 5px;
+                     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  /* docked briefs */
+  .briefs { display: flex; flex-direction: column; gap: 5px; }
+  .briefs:empty { display: none; }
+  .brief-chip { display: flex; flex-direction: column; gap: 2px; background: rgba(127,247,212,.03);
+                border: 1px solid var(--line); color: var(--sec); font-family: var(--mono); font-size: 10px;
+                letter-spacing: .02em; padding: 6px 10px; cursor: pointer; text-align: left;
+                transition: box-shadow .15s, color .15s; overflow: hidden; }
+  .brief-chip .bc-file { display: flex; align-items: center; gap: 7px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .brief-chip .bc-file::before { content: "▤"; color: var(--mint); opacity: .7; flex-shrink: 0; }
+  .brief-chip .bc-head { font-size: 9px; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-left: 17px; }
+  .brief-chip:hover { color: var(--mint); box-shadow: 0 0 12px rgba(127,247,212,.18); }
+
+  /* ---------- skills strip ---------- */
+  .skillbar { flex-shrink: 0; opacity: .92; }
+  .skillbar .wk-sect { margin: 4px 0 7px; }
+  .skills { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(192px, 1fr); gap: 8px;
+            overflow-x: auto; padding-bottom: 4px;
+            scrollbar-width: thin; scrollbar-color: rgba(127,247,212,.3) transparent; }
+  .skills::-webkit-scrollbar { height: 6px; }
+  .skills::-webkit-scrollbar-thumb { background: rgba(127,247,212,.2); }
+  .skill { position: relative; background: rgba(127,247,212,.035); border: 1px solid var(--line);
+           border-left: 2px solid var(--mint-dim); padding: 8px 11px; cursor: pointer;
+           transition: box-shadow .15s, background .15s; overflow: hidden; }
+  .skill::after { content: ""; position: absolute; top: 0; bottom: 0; left: -70%; width: 45%;
+                  background: linear-gradient(105deg, transparent, rgba(127,247,212,.1), transparent);
+                  transition: left .45s ease; pointer-events: none; }
+  .skill:hover { background: rgba(127,247,212,.08); box-shadow: 0 0 16px rgba(127,247,212,.18); }
+  .skill:hover::after { left: 130%; }
+  .skill .s-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 3px; }
+  .skill .s-name { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--mint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .skill .s-desc { font-size: 9.5px; line-height: 1.45; color: var(--sec); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .badge { flex-shrink: 0; font-size: 8px; letter-spacing: .12em; text-transform: uppercase; padding: 2px 8px;
+           border: 1px solid rgba(127,247,212,.3); color: var(--mint); background: rgba(127,247,212,.06); white-space: nowrap; border-radius: 999px; }
+  .badge-purple { border-color: rgba(179,157,245,.45); color: var(--purple); background: rgba(179,157,245,.08); }
+  .badge-red { border-color: rgba(255,75,75,.45); color: var(--red); background: rgba(255,75,75,.07); }
+  .badge-amber { border-color: rgba(240,178,78,.45); color: var(--amber); background: rgba(240,178,78,.07); }
+
+  /* ---------- ON THE GLASS overlay — the etched-glass stat window ---------- */
+  .glassov { display: none; position: fixed; inset: 0; z-index: 60; align-items: center; justify-content: center;
+             background: rgba(3, 7, 12, .5); }
+  body.glass .glassov { display: flex; }
+  body.glass .hud { opacity: .13; transition: opacity .3s ease-out; }
+  body.glass .corners i { border-color: rgba(230, 241, 242, .5); }
+
+  .gw { position: relative; width: min(720px, 58vw); max-height: 78vh; overflow: hidden;
+        background:
+          repeating-linear-gradient(0deg, rgba(255,255,255,.018) 0 1px, transparent 1px 3px),
+          rgba(6, 16, 27, .94);
+        border: 1px solid var(--teal);
+        box-shadow: 0 0 24px rgba(53,224,194,.5), 0 0 70px rgba(53,224,194,.22), inset 0 0 46px rgba(53,224,194,.05);
+        padding: 15px 20px 16px;
+        animation: gw-in .26s ease-out both; }
+  @keyframes gw-in { from { opacity: 0; transform: scale(.92); } to { opacity: 1; transform: none; } }
+  .gw.docking { animation: gw-out .32s ease-in both; transform-origin: 100% 22%; }
+  @keyframes gw-out { to { opacity: 0; transform: scale(.07) translate(30%, 0); } }
+  .gw::before { content: ""; position: absolute; inset: 6px; border: 1px solid rgba(53,224,194,.22); pointer-events: none; }
+
+  .gw-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  .gw-title { font-size: 9.5px; letter-spacing: .3em; text-transform: uppercase; color: var(--teal);
+              text-shadow: 0 0 10px rgba(53,224,194,.5); }
+  .gw-x { background: none; border: none; color: var(--sec); font-family: var(--mono); font-size: 15px;
+          cursor: pointer; padding: 0 4px; line-height: 1; }
+  .gw-x:hover { color: var(--mint); }
+
+  .gw-body { text-align: center; padding: 14px 10px 8px; }
+  .gw-kick { font-family: var(--hero); font-weight: 500; font-size: 11px; letter-spacing: .34em;
+             text-transform: uppercase; color: var(--mint);
+             text-shadow: 0 0 12px rgba(127,247,212,.45); margin-bottom: 10px; }
+  .gw-hero { font-family: var(--hero); font-weight: 300; font-size: clamp(64px, 9vw, 108px); line-height: 1.05;
+             color: #F4FBFA; text-shadow: 0 0 22px rgba(127,247,212,.35), 0 0 60px rgba(127,247,212,.18); }
+  .gw-unit { font-family: var(--hero); font-weight: 500; font-size: 11px; letter-spacing: .5em;
+             text-transform: uppercase; color: var(--text); opacity: .85; margin-top: 8px; padding-left: .5em; }
+  .gw-rule { width: 120px; height: 1px; margin: 13px auto 11px; background: linear-gradient(90deg, transparent, var(--mint-dim), transparent); }
+  .gw-sub { font-size: 11.5px; color: var(--text); opacity: .9; }
+
+  .gw.charty { width: min(560px, 44vw); }
+  .gw-chartwrap { display: flex; gap: 10px; margin: 12px auto 4px; width: min(480px, 92%); }
+  .gw-axis { display: flex; flex-direction: column; justify-content: space-between; align-items: flex-end;
+             height: 150px; padding: 0 2px 30px 0; flex-shrink: 0; }
+  .gw-axis span { font-size: 8.5px; color: var(--sec); line-height: 1; }
+  .gw-chart { display: flex; align-items: flex-end; justify-content: space-around; gap: 22px;
+              height: 180px; flex: 1; padding: 0 8px 30px;
+              background: repeating-linear-gradient(0deg, transparent 0 36.5px, rgba(255,255,255,.06) 36.5px 37.5px)
+                          bottom / 100% 150px no-repeat; background-origin: content-box; }
+  .gw-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 7px;
+            flex: 0 1 84px; height: 100%; position: relative; }
+  .gw-bar { width: 100%; max-width: 58px; background: #BFFFEE;
+            box-shadow: 0 0 12px rgba(169,255,233,.55), inset 0 0 0 1px rgba(255,255,255,.35);
+            transform-origin: 50% 100%; animation: gw-grow .7s ease-out both; }
+  @keyframes gw-grow { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+  .gw-bl { font-size: 9px; letter-spacing: .04em; color: var(--text); opacity: .85; line-height: 1.3;
+           text-align: right; max-width: 110px; height: 24px; margin-bottom: -30px;
+           transform: rotate(-24deg); transform-origin: 100% 0; white-space: nowrap;
+           overflow: hidden; text-overflow: ellipsis; }
+
+  .gw-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
+  .gw-src { font-size: 10.5px; color: var(--text); opacity: .8; text-transform: lowercase; }
+  .gw-mark { font-size: 8px; letter-spacing: .2em; text-transform: uppercase; color: var(--dim); }
+  .gw-run { background: rgba(127,247,212,.08); border: 1px solid var(--mint-dim); color: var(--mint);
+            font-family: var(--mono); font-size: 9px; letter-spacing: .2em; text-transform: uppercase;
+            padding: 6px 14px; cursor: pointer; margin-top: 12px; transition: box-shadow .15s, background .15s; }
+  .gw-run:hover { background: rgba(127,247,212,.16); box-shadow: 0 0 14px rgba(127,247,212,.3); }
+
+  /* ---------- working view — full-screen glass takeover ---------- */
+  .work { display: none; position: fixed; inset: 0; z-index: 40; padding: 30px 38px 24px; background: rgba(3, 7, 12, .93); }
+  body.working .work { display: flex; animation: work-in .28s ease-out both; }
+  @keyframes work-in { from { opacity: 0; transform: scale(1.012); } to { opacity: 1; transform: none; } }
+
+  .work-frame { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 11px;
+                border: 1px solid rgba(53,224,194,.4); background: rgba(5, 13, 22, .9);
+                box-shadow: 0 0 40px rgba(53,224,194,.12), inset 0 0 60px rgba(53,224,194,.03);
+                padding: 16px 20px 16px; }
+  .work-frame::before, .work-frame::after { content: ""; position: absolute; width: 18px; height: 18px; pointer-events: none; }
+  .work-frame::before { top: -1px; left: -1px; border-top: 2px solid var(--mint); border-left: 2px solid var(--mint); }
+  .work-frame::after { bottom: -1px; right: -1px; border-bottom: 2px solid var(--mint); border-right: 2px solid var(--mint); }
+
+  .work-head { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+  .work-badge { display: inline-flex; align-items: center; gap: 9px; font-size: 10.5px; letter-spacing: .34em;
+                text-transform: uppercase; color: var(--mint); text-shadow: 0 0 14px rgba(127,247,212,.5); }
+  .work-badge .wdot { width: 8px; height: 8px; background: var(--mint); border-radius: 50%;
+                      box-shadow: 0 0 12px var(--mint); animation: vpulse .9s infinite; }
+  .work-task { flex: 1; min-width: 0; font-size: 11px; color: var(--sec);
+               white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: .85; }
+  .work-clock { font-family: var(--hero); font-weight: 300; font-size: 19px; color: #F4FBFA; letter-spacing: .1em;
+                text-shadow: 0 0 12px rgba(127,247,212,.4); }
+  .work-stop { background: rgba(80,15,15,.3); border: 1px solid rgba(122,32,32,.9); color: var(--red);
+               font-family: var(--mono); font-size: 9.5px; letter-spacing: .18em; text-transform: uppercase;
+               padding: 6px 13px; cursor: pointer; transition: background .15s, box-shadow .15s; }
+  .work-stop:hover { background: rgba(80,15,15,.55); box-shadow: 0 0 12px rgba(255,75,75,.3); }
+  .work-min { color: var(--sec); border-color: rgba(110,139,148,.4); background: rgba(110,139,148,.06); }
+  .work-min:hover { background: rgba(110,139,148,.14); box-shadow: 0 0 12px rgba(110,139,148,.25); }
+
+  .work-now { font-size: clamp(14px, 1.9vw, 20px); color: var(--text); letter-spacing: .12em; text-transform: uppercase;
+              display: flex; align-items: center; gap: 13px; min-height: 28px; flex-shrink: 0;
+              text-shadow: 0 0 16px rgba(127,247,212,.25); }
+  .work-now::before { content: "▸"; color: var(--mint); animation: vpulse 1.1s infinite; }
+
+  .work-main { display: flex; flex: 1; min-height: 0; gap: 20px; }
+  .work-railwrap { width: min(320px, 30vw); flex-shrink: 0; display: flex; flex-direction: column;
+                   min-height: 0; border: 1px solid var(--line); background: rgba(6, 15, 25, .55); padding: 11px 13px; }
+  .rail-h { font-size: 8.5px; letter-spacing: .3em; text-transform: uppercase; color: var(--dim); margin-bottom: 9px; flex-shrink: 0; }
+  .work-steps { flex: 1; min-height: 0; overflow-y: auto; padding-left: 4px;
+                border-left: 1px solid var(--line); margin-left: 3px;
+                scrollbar-width: thin; scrollbar-color: rgba(127,247,212,.3) transparent; }
+  .work-steps::-webkit-scrollbar { width: 6px; }
+  .work-steps::-webkit-scrollbar-thumb { background: rgba(127,247,212,.2); }
+  .wstep { display: flex; align-items: baseline; gap: 9px; font-size: 11.5px; color: var(--dim);
+           padding: 4px 0 4px 12px; position: relative; animation: rise .25s ease-out both; }
+  .wstep::before { content: ""; position: absolute; left: -4px; top: 9px; width: 6px; height: 6px;
+                   background: var(--bg); border: 1px solid var(--mint-dim); border-radius: 50%; }
+  .wstep.done { color: var(--sec); }
+  .wstep.done::before { background: var(--mint-dim); }
+  .wstep:last-child { color: var(--text); }
+  .wstep:last-child::before { background: var(--mint); box-shadow: 0 0 8px var(--mint); }
+  .wstep .wt { flex: 1; min-width: 0; overflow-wrap: break-word; }
+  .wstep .wtime { color: rgba(94,124,134,.8); font-size: 9.5px; flex-shrink: 0; }
+
+  .work-logslot { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
+  .work-logslot .log { flex: 1; min-height: 0; border: 1px solid var(--line); background: rgba(4, 10, 18, .6); }
+  .work-tabslot, .work-barslot { flex-shrink: 0; }
+  .work-tabslot .tabs { padding: 0; }
+  .work-barslot .bar { margin-top: 2px; width: 100%; }
+  .deck-slot { display: contents; }
+
+  /* transform-only sweep (compositor-safe), clipped by its own wrapper */
+  .work-scanwrap { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+  .work-scan { position: absolute; left: 0; right: 0; height: 2px; top: 0;
+               background: linear-gradient(90deg, transparent, rgba(53,224,194,.7), transparent);
+               animation: scanline 2.6s linear infinite; }
+  @keyframes scanline { 0% { transform: translateY(0); opacity: 0; } 12% { opacity: 1; } 88% { opacity: 1; }
+                        100% { transform: translateY(100vh); opacity: 0; } }
+
+  .workmini { display: none; position: fixed; right: 24px; bottom: 24px; z-index: 39;
+              align-items: center; gap: 10px; background: rgba(6, 15, 25, .96);
+              border: 1px solid var(--mint-dim); color: var(--mint); font-family: var(--mono);
+              font-size: 10.5px; letter-spacing: .06em; padding: 10px 16px; cursor: pointer;
+              box-shadow: 0 0 22px rgba(127,247,212,.25); }
+  .workmini .wdot { width: 8px; height: 8px; background: var(--mint); border-radius: 50%;
+                    box-shadow: 0 0 10px var(--mint); animation: vpulse .9s infinite; flex-shrink: 0; }
+  .workmini:hover { background: rgba(127,247,212,.1); }
+  body.workbg .workmini { display: inline-flex; animation: rise .2s ease-out both; }
+
+  /* ---------- contextual surfacing flash ---------- */
+  .flash { animation: flash-glow 2.2s ease-out both; }
+  @keyframes flash-glow {
+    0%   { box-shadow: 0 0 0 2px rgba(127,247,212,0); }
+    18%  { box-shadow: 0 0 34px 4px rgba(127,247,212,.5); }
+    100% { box-shadow: 0 0 0 0 rgba(127,247,212,0); } }
+
+  /* ---------- responsive ---------- */
+  @media (max-height: 880px) { .reactor { width: 270px; height: 270px; } }
+  @media (max-height: 760px) { .reactor { width: 215px; height: 215px; } }
+  @media (max-height: 660px) { .briefing { display: none; } }
+  @media (max-width: 1260px) { .hud-main { gap: 14px; } .briefing { max-width: 270px; } }
+  @media (max-width: 1000px) {
+    .hud { padding: 16px; overflow-y: auto; }
+    .hud-main { display: flex; flex-direction: column; }
+    .rail-left, .rail-right { padding-top: 0; }
+    .panel { min-height: 220px; max-height: 340px; }
+    .stage { order: -1; }
+    .reactor { width: 185px; height: 185px; }
+    .briefing { display: none; }
+    .gw { width: 92vw; }
+    body { overflow: auto; }
+  }
+</style>
+</head>
+<body>
+<div class="corners" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+
+<div class="boot" id="boot" aria-hidden="true">
+  <div class="boot-ring"></div>
+  <div class="boot-lines" id="bootLines"></div>
+</div>
+
+<div class="hud">
+
+  <header class="hud-top stagger">
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">
+        <circle cx="16" cy="16" r="14" fill="none" stroke="#7FF7D4" stroke-width="1" opacity=".55" stroke-dasharray="18 5"/>
+        <circle cx="16" cy="16" r="9.5" fill="none" stroke="#7FF7D4" stroke-width="1" stroke-dasharray="4 3" opacity=".8"/>
+        <circle cx="16" cy="16" r="4.5" fill="#7FF7D4"/>
+      </svg>
+      <div>
+        <div class="wordmark">J.A.R.V.I.S</div>
+        <div class="wordsub">Just a rather very intelligent system &mdash; Encourt command deck</div>
+      </div>
+    </div>
+    <div class="top-right">
+      <button id="iconBox" class="iconbox" type="button" title="sitrep — spoken status, on-device">&#8961;</button>
+      <div class="readout"><span>LOCAL</span><b id="clock">--:--:--</b></div>
+      <div class="readout"><span>PRESENCE</span><b>HERE</b></div>
+      <div class="readout"><span>STATUS</span><span class="chip" id="statusChip">SYSTEMS ONLINE</span></div>
+      <div id="briefing" class="briefing"></div>
+      <div id="vault" class="vault" title="Obsidian vault link — checked every session"><span class="vdot"></span><span id="vaultText">vault check&hellip;</span></div>
+    </div>
+  </header>
+
+  <div class="hud-main">
+
+    <div class="rail-left stagger" style="animation-delay:.12s">
+      <aside class="panel">
+        <div class="panel-inner">
+          <div class="panel-head">
+            <span class="ph-name">&#9670; COMM LOG</span>
+            <span class="ph-spacer"></span>
+            <span id="commPill" class="ph-pill">LIVE</span>
+            <span class="ph-spacer"></span>
+            <span id="commCount" class="ph-count">00</span>
+          </div>
+          <div id="deckTabSlot" class="deck-slot"><div id="tabs" class="tabs" role="tablist" aria-label="Tasks"></div></div>
+          <div id="deckLogSlot" class="deck-slot"><div id="log" class="log"></div></div>
+        </div>
+      </aside>
+    </div>
+
+    <section class="stage stagger" style="animation-delay:.18s">
+      <div class="reactor" aria-hidden="true">
+        <div class="r-ticks"></div>
+        <div class="r-ticks2"></div>
+        <div class="r-seg"></div>
+        <div class="r-dash"></div>
+        <div id="viz" class="viz"></div>
+        <div class="r-teeth"></div>
+        <div class="r-halo"></div>
+        <div class="r-core"></div>
+      </div>
+
+      <div class="state">
+        <div class="state-name">J.A.R.V.I.S</div>
+        <div id="stateMain" class="state-main">STANDBY</div>
+        <div id="stateSub" class="state-sub">tap engage or press space</div>
+      </div>
+
+      <div class="engage-row">
+        <span class="chev" aria-hidden="true">&#8249;</span>
+        <button id="micBtn" class="engage muted" type="button" title="Toggle voice input (space) — also interrupts speech">
+          <span id="engageLabel">ENGAGE</span>
+        </button>
+        <span class="chev" aria-hidden="true">&#8250;</span>
+      </div>
+
+      <div class="pills">
+        <div id="wakeToggle" class="wtoggle on" title="Require the wake word before acting on speech">
+          <span class="sw"></span><span>Wake &ldquo;Hey Nathaniel&rdquo;</span>
+        </div>
+        <button id="spkBtn" class="pill" title="Toggle spoken replies" type="button">Voice</button>
+        <button id="newBtn" class="pill" title="Start a fresh session" type="button">New session</button>
+      </div>
+      <span class="armed-ind"><span class="dot"></span>listening&hellip; go ahead</span>
+
+      <div id="deckBarSlot" class="deck-slot"><form id="bar" class="bar">
+        <div id="hearBub" class="hearbub" role="status">
+          <div id="hbLabel" class="hb-label">hearing you&hellip;</div>
+          <div id="hbText" class="hb-text"></div>
+          <div class="hb-hint">no wake word &mdash; tap to send anyway</div>
+        </div>
+        <span class="prompt-mark">&#9656;</span>
+        <input id="input" placeholder="Speak and pause, or type a command&hellip;" autocomplete="off" spellcheck="false">
+        <button id="sendBtn" type="submit">Send</button>
+      </form></div>
+    </section>
+
+    <div class="rail-right stagger" style="animation-delay:.24s">
+      <aside class="panel">
+        <div class="panel-inner">
+          <div class="panel-head">
+            <span class="ph-name">&#9670; WORKSHOP</span>
+            <span class="ph-spacer"></span>
+            <button id="fullBrief" class="ph-link" type="button" hidden>FULL BRIEF</button>
+            <span class="ph-live">LIVE</span>
+          </div>
+          <div class="rail-scroll">
+            <div class="wk-sect"><span>Waiting on you</span><b id="alertCount"></b></div>
+            <div id="alerts" class="alerts"></div>
+            <button id="alertsMore" class="more-link" type="button" hidden>+0 MORE</button>
+            <div id="sectReadings" class="wk-sect"><span>Readings</span></div>
+            <div id="tiles" class="tiles"></div>
+            <div class="wk-sect"><span>On the glass</span></div>
+            <div id="dock" class="dock"></div>
+            <div id="briefs" class="briefs"></div>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+  </div>
+
+  <footer class="skillbar stagger" style="animation-delay:.3s">
+    <div id="sectSkills" class="wk-sect"><span>Skills &mdash; click to run</span></div>
+    <div id="skills" class="skills"></div>
+  </footer>
+
+</div>
+
+<!-- ON THE GLASS — the etched-glass stat overlay -->
+<div id="glassov" class="glassov" aria-live="polite">
+  <div id="gw" class="gw"></div>
+</div>
+
+<!-- full-screen working takeover — OUTSIDE .hud so nothing clips it -->
+<section id="work" class="work" aria-live="polite">
+  <div class="work-frame">
+    <div class="work-head">
+      <span class="work-badge"><span class="wdot"></span>ON THE GLASS</span>
+      <span id="workTask" class="work-task"></span>
+      <span id="workClock" class="work-clock">0:00</span>
+      <button id="workMin" class="work-stop work-min" type="button" title="Back to the deck — task keeps running">&#9601; deck</button>
+      <button id="workStop" class="work-stop" type="button" title="Stop this task">&#9632; stop</button>
+    </div>
+    <div id="workNow" class="work-now">Thinking it through&hellip;</div>
+    <div class="work-main">
+      <div class="work-railwrap">
+        <div class="rail-h">Step log</div>
+        <div id="workSteps" class="work-steps"></div>
+      </div>
+      <div id="workLogSlot" class="work-logslot"></div>
+    </div>
+    <div id="workTabSlot" class="work-tabslot"></div>
+    <div id="workBarSlot" class="work-barslot"></div>
+    <div class="work-scanwrap" aria-hidden="true"><div class="work-scan"></div></div>
+  </div>
+</section>
+
+<button id="workMini" class="workmini" type="button" title="Task running — click to expand">
+  <span class="wdot"></span><span id="workMiniText">working&hellip;</span>
+</button>
+
+<script>
+(() => {
+  "use strict";
+
+  const SENT_GLASS = "===GLASS===";
+  const SENT_SPEAK = "===SPEAK===";
+  const SENT_NEXT  = "===NEXT===";
+  const SENT_FILES = "===FILES===";
+  // chunk-boundary carry must cover a split of ANY sentinel
+  const CARRY_KEEP = Math.max(SENT_GLASS.length, SENT_SPEAK.length, SENT_NEXT.length, SENT_FILES.length) - 1;
+  const WAKE_RE = /\b(?:hey|hi|ok|okay|hello)\s+(?:nathaniel|nathanial|nathaneil|nathan|nat)\b[\s,.:!-]*/i;
+
+  const $ = (id) => document.getElementById(id);
+  const log = $("log"), input = $("input"), bar = $("bar"), sendBtn = $("sendBtn");
+  const micBtn = $("micBtn"), spkBtn = $("spkBtn"), newBtn = $("newBtn");
+  const briefingEl = $("briefing"), alertsEl = $("alerts");
+  const tilesEl = $("tiles"), skillsEl = $("skills"), briefsEl = $("briefs"), vizEl = $("viz");
+  const wakeToggle = $("wakeToggle");
+  const vaultEl = $("vault"), vaultText = $("vaultText");
+  const tabsEl = $("tabs");
+  const hearBub = $("hearBub"), hbLabel = $("hbLabel"), hbText = $("hbText");
+  const deckLogSlot = $("deckLogSlot"), deckTabSlot = $("deckTabSlot"), deckBarSlot = $("deckBarSlot");
+  const workLogSlot = $("workLogSlot"), workTabSlot = $("workTabSlot"), workBarSlot = $("workBarSlot");
+  const workMin = $("workMin"), workMini = $("workMini"), workMiniText = $("workMiniText");
+  const sectReadings = $("sectReadings"), sectSkills = $("sectSkills");
+  const stateMain = $("stateMain"), stateSub = $("stateSub"), engageLabel = $("engageLabel");
+  const clockEl = $("clock"), alertCount = $("alertCount"), alertsMore = $("alertsMore");
+  const fullBriefBtn = $("fullBrief"), statusChip = $("statusChip");
+  const commPill = $("commPill"), commCount = $("commCount");
+  const dockEl = $("dock"), glassRoot = $("glassov"), gw = $("gw");
+  const bootEl = $("boot"), bootLines = $("bootLines");
+
+  const SILENCE_MS = 1900;   // stop speaking for this long → the phrase is committed
+  const FINAL_MS = 300;      // a final result + this much quiet → commit early
+
+  let micMuted = true, speakerMuted = false, firstMicEnable = true;
+  let atBottom = true, recog = null;
+  let wakeMode = false, armed = false, armTimer = null;   // wake word OFF by default: speak, pause, it acts
+  let audioCtx = null, ackIdx = 0;
+  let recogWanted = false;                                 // we want the recogniser live (vs. paused for TTS)
+  let heardBuf = "", lastInterim = "", silenceTimer = null;
+  let netErrs = 0, lastNetErrAt = 0;                       // speech 'network' errors → backoff, decays after a quiet minute
+  let msgCount = 0;                                        // comm-log turn counter, like the glass
+  try { wakeMode = localStorage.getItem("enc_wake") === "1"; } catch (e) {}
+
+  /* per-task state — no shared globals for parse/carry/narration */
+  const tasks = new Map();      // id -> task state object
+  let activeTaskId = null;
+  let tmpSeq = 0;
+
+  /* ---------------- local clock ---------------- */
+  function tickLocal() { clockEl.textContent = new Date().toLocaleTimeString("en-GB", { hour12: false }); }
+  tickLocal(); setInterval(tickLocal, 1000);
+
+  /* ---------------- radial spectrum fan (GPU-only: rotate/translate/scaleY) ---------------- */
+  for (let i = 0; i < 44; i++) {
+    const s = document.createElement("span");
+    s.style.setProperty("--a", (i * (360 / 44)) + "deg");
+    s.style.setProperty("--s", (0.35 + Math.abs(Math.sin(i * 0.7)) * 0.65).toFixed(2));
+    s.style.animationDelay = (i * 47 % 900) + "ms";
+    vizEl.appendChild(s);
+  }
+  function placeViz() {
+    const r = Math.round(vizEl.clientWidth * 0.335);
+    for (const s of vizEl.children) s.style.setProperty("--r", "-" + r + "px");
+  }
+  placeViz();
+  window.addEventListener("resize", placeViz);
+
+  function setSpeaking(on) { document.body.classList.toggle("speaking", !!on); updateStateUI(); }
+
+  /* ---------------- state stack under the reactor ---------------- */
+  function updateStateUI() {
+    const hearing = document.body.classList.contains("hearing");
+    const speaking = document.body.classList.contains("speaking");
+    let main, sub;
+    if (speaking)          { main = "RESPONDING";  sub = "on the glass, sir"; }
+    else if (micMuted)     { main = "STANDBY";     sub = "tap engage or press space"; }
+    else if (hearing)      { main = "HEARING YOU"; sub = "pause to send"; }
+    else if (armed)        { main = "AWAKE";       sub = "go ahead, sir"; }
+    else if (wakeMode)     { main = "LISTENING";   sub = "say “hey nathaniel”"; }
+    else                   { main = "LISTENING";   sub = "speak freely"; }
+    if (stateMain.textContent !== main) stateMain.textContent = main;
+    if (stateSub.textContent !== sub) stateSub.textContent = sub;
+    const lbl = micMuted ? "ENGAGE" : "DISENGAGE";
+    if (engageLabel.textContent !== lbl) engageLabel.textContent = lbl;
+    micBtn.classList.toggle("muted", micMuted);
+  }
+  setInterval(updateStateUI, 400);
+
+  /* ---------------- log helpers (textContent only) ---------------- */
+  log.addEventListener("scroll", () => { atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 48; });
+  function scrollLog() { if (atBottom) log.scrollTop = log.scrollHeight; }
+  function addLine(cls, text) { const d = document.createElement("div"); d.className = cls; d.textContent = text; log.appendChild(d); scrollLog(); }
+  const addSysLine  = (t) => addLine("line-sys", "▸ " + t);
+  const addErrLine  = (t) => addLine("line-err", "▸ error — " + t);
+  function taskLine(task, cls, text) { const d = document.createElement("div"); d.className = cls; d.textContent = text; task.logEl.appendChild(d); scrollLog(); }
+  function bumpComm() { msgCount++; commCount.textContent = String(msgCount).padStart(2, "0"); commPill.classList.add("on"); }
+
+  /* ---------------- beeps (WebAudio) ---------------- */
+  function ensureAudio() { if (!audioCtx) { try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (audioCtx && audioCtx.state === "suspended") audioCtx.resume(); }
+  function beep(kind) {
+    if (!audioCtx) return;
+    const now = audioCtx.currentTime;
+    const tones = kind === "wake" ? [[660, 0], [990, .09]] : [[880, 0]];
+    for (const [freq, at] of tones) {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      o.type = "sine"; o.frequency.value = freq;
+      g.gain.setValueAtTime(0, now + at);
+      g.gain.linearRampToValueAtTime(.12, now + at + .01);
+      g.gain.exponentialRampToValueAtTime(.0001, now + at + .16);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(now + at); o.stop(now + at + .18);
+    }
+  }
+
+  /* ---------------- TTS speak queue (with barge-in) ---------------- */
+  const sQ = []; let sBusy = false; let audioPlaying = false;
+  let currentAudio = null, currentResolve = null;
+  let speakGen = 0;    // bumped by stopSpeaking(); in-flight fetches check it before playing
+
+  function capSpoken(t) {
+    t = t.replace(/[*#`_>]/g, "").trim();
+    if (t.length <= 700) return t;
+    const head = t.slice(0, 700); let cut = -1;
+    for (const m of head.matchAll(/[.!?](?=\s|$)/g)) cut = m.index;
+    return cut > 40 ? head.slice(0, cut + 1) : head;
+  }
+  function lineToSpeech(l) {
+    l = l.replace(/^[\s\-•*]+/, "").replace(/[*#`_]/g, "").trim();
+    if (!l) return "";
+    if (!/[.!?]$/.test(l)) l += ".";
+    return capSpoken(l);
+  }
+  // Mic is cut while Jarvis speaks, otherwise it transcribes his own voice off the speakers.
+  // Anything Krish had half-said is PARKED as a tappable stale bubble, never silently binned.
+  function pauseRecogForAudio() {
+    const pending = ((heardBuf ? heardBuf + " " : "") + lastInterim).trim();
+    if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
+    heardBuf = ""; lastInterim = "";
+    if (pending && !isEcho(pending)) goStale(pending);
+    else hideHearing();
+    document.body.classList.remove("hearing");
+    if (recog) { try { recog.stop(); } catch (e) {} }
+  }
+  // Reopen ~220ms after playback ends — the speaker tail otherwise re-triggers recognition.
+  function resumeRecogAfterAudio() { setTimeout(() => { if (recogWanted && !micMuted && !audioPlaying) startRecog(); }, 220); }
+
+  function enqueueSpeak(text) { if (speakerMuted) return; text = String(text || "").trim(); if (!text) return; rememberSpoken(text); sQ.push(text); runQ(); }
+  async function runQ() {
+    if (sBusy) return;
+    sBusy = true; audioPlaying = true; setSpeaking(true); pauseRecogForAudio();
+    while (sQ.length) { await playOne(sQ.shift()); }
+    audioPlaying = false; setSpeaking(false); sBusy = false; resumeRecogAfterAudio();
+  }
+  function playOne(text) {
+    const gen = speakGen;   // if stopSpeaking() bumps this while we're fetching, never play
+    return new Promise(async (resolve) => {
+      currentResolve = resolve;
+      const done = () => { if (currentResolve === resolve) { currentAudio = null; currentResolve = null; } resolve(); };
+      try {
+        const res = await fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text }) });
+        if (gen !== speakGen) { done(); return; }             // barged-in mid-fetch
+        const ct = res.headers.get("content-type") || "";
+        if (ct.includes("audio/mpeg")) {
+          const blob = await res.blob();
+          if (gen !== speakGen) { done(); return; }           // barged-in mid-download
+          const url = URL.createObjectURL(blob);
+          const audio = new Audio(url);
+          currentAudio = audio;
+          rememberSpoken(text);   // re-stamp at PLAYBACK start so the echo window covers the tail
+          const fin = () => { URL.revokeObjectURL(url); done(); };
+          audio.addEventListener("ended", fin);
+          audio.addEventListener("error", fin);
+          audio.play().catch(fin);
+        } else {
+          // {local:true} — the server replies only AFTER `say` finishes speaking, so the
+          // speech is already done here; just a short settle before reopening the mic.
+          rememberSpoken(text);
+          await res.json().catch(() => null);
+          setTimeout(done, 300);
+        }
+      } catch (e) { done(); }
+    });
+  }
+  // Barge-in: kill the current utterance and everything queued. The task keeps running.
+  function stopSpeaking() {
+    speakGen++;
+    sQ.length = 0;
+    if (currentAudio) { try { currentAudio.pause(); } catch (e) {} }
+    if (currentResolve) { const r = currentResolve; currentAudio = null; currentResolve = null; r(); }
+  }
+
+  const ACKS = ["Consider it done, sir.", "On it — working through that now.", "Right away, sir.", "I'll have that sorted.", "Looking into it now, sir."];
+
+  /* ---------------- voice input + wake word ---------------- */
+  function updateWakeUI() { wakeToggle.classList.toggle("on", wakeMode); updateStateUI(); }
+  wakeToggle.addEventListener("click", () => {
+    wakeMode = !wakeMode; updateWakeUI();
+    try { localStorage.setItem("enc_wake", wakeMode ? "1" : "0"); } catch (e) {}
+    addSysLine(wakeMode ? "wake word on — say “Hey Nathaniel”" : "wake word off — speak, pause two seconds, I act");
+    if (!wakeMode) disarm();
+  });
+
+  function arm() {
+    armed = true; document.body.classList.add("armed");
+    updateStateUI(); beep("wake"); addSysLine("awake — listening for your command");
+    if (armTimer) clearTimeout(armTimer);
+    armTimer = setTimeout(disarm, 12000);
+  }
+  function disarm() {
+    armed = false; document.body.classList.remove("armed");
+    if (armTimer) { clearTimeout(armTimer); armTimer = null; }
+    updateStateUI();
+  }
+
+  function setupRecognition() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      micBtn.style.display = "none"; wakeToggle.style.display = "none";
+      addErrLine("this browser has no speech input — open the deck in Chrome");
+      return;
+    }
+    recog = new SR();
+    recog.continuous = true; recog.interimResults = true; recog.lang = "en-GB";
+
+    recog.onstart = () => { if (!micMuted) updateStateUI(); };
+
+    recog.onresult = (e) => {
+      netErrs = 0;
+      let interim = "", gotFinal = false;
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i];
+        const t = (r[0] && r[0].transcript || "").trim();
+        if (!t) continue;
+        if (r.isFinal) { heardBuf = (heardBuf + " " + t).trim(); gotFinal = true; }
+        else interim += " " + t;
+      }
+      lastInterim = interim.trim();
+      const live = (heardBuf + " " + lastInterim).trim();
+      if (live) showHearing(live);
+      armSilence(gotFinal && !lastInterim ? FINAL_MS : SILENCE_MS);
+    };
+
+    recog.onerror = (e) => {
+      const err = (e && e.error) || "unknown";
+      if (err === "no-speech" || err === "aborted") return;      // normal; onend restarts silently
+      if (err === "not-allowed" || err === "service-not-allowed") {
+        micMuted = true; recogWanted = false; updateMicUI(); clearHeard();
+        addErrLine("microphone blocked — click the camera/mic icon in the address bar and allow the microphone for 127.0.0.1");
+        return;
+      }
+      if (err === "audio-capture") { addErrLine("no microphone found — check the macOS input device"); return; }
+      if (err === "network") {
+        netErrs++; lastNetErrAt = Date.now();
+        if (netErrs === 1) addErrLine("speech service dropped — backing off and retrying");
+        return;                                                  // onend applies the backoff
+      }
+      addErrLine("speech input — " + err);
+    };
+
+    // Chrome ends the stream every ~60s and after every stop(); restart whenever we still
+    // want it — with exponential backoff while the speech service is erroring.
+    recog.onend = () => {
+      // A quiet minute since the last network error means the service recovered —
+      // without this the backoff would punish every routine restart forever.
+      if (netErrs && Date.now() - lastNetErrAt > 60000) netErrs = 0;
+      const delay = netErrs ? Math.min(30000, 1000 * Math.pow(4, netErrs - 1)) + Math.random() * 400 : 300;
+      setTimeout(() => { if (recogWanted && !micMuted && !audioPlaying) startRecog(); }, delay);
+    };
+  }
+
+  // Never open the mic while Jarvis is talking or has speech queued — on speakers it would
+  // transcribe his own voice straight back as a command. resumeRecogAfterAudio() picks it up.
+  function startRecog() { if (!recog || audioPlaying || sBusy) return; try { recog.start(); } catch (e) {} }
+
+  /* Self-echo guard: remember what Jarvis just said and bin any transcript that matches it. */
+  const spokenRecent = [];
+  const normalise = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+  function rememberSpoken(text) {
+    const n = normalise(text); if (!n) return;
+    const existing = spokenRecent.find((s) => s.n === n);
+    if (existing) { existing.t = Date.now(); return; }   // re-stamp, don't duplicate
+    spokenRecent.push({ n: n, t: Date.now() });
+    if (spokenRecent.length > 8) spokenRecent.shift();
+  }
+  function isEcho(text) {
+    const n = normalise(text); if (n.length < 10) return false;
+    const now = Date.now();
+    return spokenRecent.some((s) => {
+      if (now - s.t > 10000) return false;
+      if (s.n.includes(n)) return n.length >= s.n.length * 0.5;
+      return n.includes(s.n) && s.n.length >= n.length * 0.5;
+    });
+  }
+
+  /* ---------------- listening bubble ---------------- */
+  let staleText = "", staleTimer = null;
+  function showHearing(text) {
+    if (staleTimer) { clearTimeout(staleTimer); staleTimer = null; staleText = ""; }
+    hearBub.classList.remove("stale");
+    hbLabel.textContent = "hearing you…";
+    hbText.textContent = text;
+    hearBub.classList.add("show");
+    document.body.classList.add("hearing");
+    updateStateUI();
+  }
+  function hideHearing() {
+    if (hearBub.classList.contains("stale")) return;
+    hearBub.classList.remove("show");
+    document.body.classList.remove("hearing");
+    updateStateUI();
+  }
+  function goStale(text) {
+    staleText = text;
+    hearBub.classList.add("show", "stale");
+    hbLabel.textContent = "heard, not sent";
+    hbText.textContent = text;
+    document.body.classList.remove("hearing");
+    updateStateUI();
+    if (staleTimer) clearTimeout(staleTimer);
+    staleTimer = setTimeout(dropStale, 8000);
+  }
+  function dropStale() {
+    if (staleTimer) { clearTimeout(staleTimer); staleTimer = null; }
+    staleText = "";
+    hearBub.classList.remove("show", "stale");
+  }
+  hearBub.addEventListener("click", () => {
+    if (!hearBub.classList.contains("stale")) return;
+    const t = staleText; dropStale();
+    if (t) dispatchVoice(t);
+  });
+
+  function armSilence(delay) {
+    if (silenceTimer) clearTimeout(silenceTimer);
+    silenceTimer = setTimeout(flushHeard, delay || SILENCE_MS);
+  }
+  function clearHeard() {
+    if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
+    heardBuf = ""; lastInterim = "";
+    hideHearing();
+  }
+  function flushHeard() {
+    const text = ((heardBuf ? heardBuf + " " : "") + lastInterim).trim();
+    if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
+    heardBuf = ""; lastInterim = "";
+    if (!text) { hideHearing(); return; }
+    if (isEcho(text)) { hideHearing(); addSysLine("ignored my own voice off the speakers"); return; }
+
+    if (!wakeMode) { hideHearing(); dispatchVoice(text); return; }
+    if (armed) { hideHearing(); disarm(); dispatchVoice(text.replace(WAKE_RE, "").trim() || text); return; }
+    const m = text.match(WAKE_RE);
+    if (m) {
+      hideHearing();
+      const cmd = text.slice(m.index + m[0].length).trim();
+      if (cmd) dispatchVoice(cmd); else arm();
+      return;
+    }
+    goStale(text);   // no wake word, not armed → visible, tappable, auto-dismisses
+  }
+
+  function dispatchVoice(text) {
+    text = String(text || "").trim(); if (!text) return;
+    input.value = ""; beep("go");
+    sendMessage(text);
+  }
+
+  function updateMicUI() { micBtn.classList.toggle("muted", micMuted); document.body.classList.toggle("listening", !micMuted && !armed); updateStateUI(); }
+  function updateSpkUI() { spkBtn.classList.toggle("muted", speakerMuted); }
+
+  micBtn.addEventListener("click", () => {
+    // Barge-in first: if Jarvis is mid-speech, ENGAGE/space means "stop talking".
+    if (audioPlaying) {
+      stopSpeaking();
+      addSysLine("interrupted");
+      if (!micMuted) return;   // already live — just wanted him to stop
+    }
+    micMuted = !micMuted; ensureAudio(); recogWanted = !micMuted; updateMicUI();
+    try { localStorage.setItem("enc_mic", micMuted ? "0" : "1"); } catch (e) {}
+    if (!micMuted) {
+      addSysLine(wakeMode ? "mic live — say “Hey Nathaniel” to wake me" : "mic live — speak, then pause; I act on the pause");
+      if (firstMicEnable) {
+        firstMicEnable = false;
+        // enqueueSpeak is a no-op while the speaker is muted — start the mic directly then,
+        // or recognition would never begin (the greeting's playback normally starts it).
+        if (speakerMuted) startRecog();
+        else enqueueSpeak("Jarvis online. All systems ready, sir.");
+      } else startRecog();
+    } else {
+      disarm(); clearHeard();
+      if (recog) { try { recog.stop(); } catch (e) {} }
+      addSysLine("mic muted");
+    }
+  });
+  spkBtn.addEventListener("click", () => { speakerMuted = !speakerMuted; if (speakerMuted) stopSpeaking(); updateSpkUI(); });
+  $("iconBox").addEventListener("click", () => sendMessage("sitrep"));
+  newBtn.addEventListener("click", async () => {
+    try { await fetch("/api/chat/new", { method: "POST" }); } catch (e) {}
+    // Running tasks survive a "new session" — the server keeps them running (and counts
+    // them toward capacity), so hiding them would orphan a live, speaking task.
+    let keptRunning = null;
+    for (const t of [...tasks.values()]) {
+      if (t.status === "running") { if (!keptRunning) keptRunning = t.id; continue; }
+      t.tabEl.remove(); t.logEl.remove(); tasks.delete(t.id);
+    }
+    activeTaskId = null; workMinimized = false;
+    for (const child of [...log.children]) if (!child.classList.contains("tasklog")) child.remove();
+    atBottom = true;
+    // recount surviving turns (a kept running task may already have visible bubbles)
+    msgCount = log.querySelectorAll(".turn-user, .reply").length;
+    commCount.textContent = String(msgCount).padStart(2, "0");
+    commPill.classList.toggle("on", msgCount > 0);
+    if (keptRunning) activateTask(keptRunning); else renderWorkPanel();
+    addSysLine(keptRunning ? "new session — finished tasks cleared, a running task carries on" : "new session — log cleared");
+  });
+
+  // space bar = engage/disengage (and barge-in), like the glass
+  document.addEventListener("keydown", (e) => {
+    if (e.code !== "Space" || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+    const t = e.target;
+    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "BUTTON"
+        || t.tagName === "SELECT" || t.tagName === "A" || t.isContentEditable)) return;
+    e.preventDefault(); micBtn.click();
+  });
+
+  /* ---------------- ON THE GLASS — overlay + dock ---------------- */
+  let glassOpen = null;        // { spec, fromDock, noDock, shownAt, autoDock }
+  let glassMonitor = null;
+  let glassFinishT = null;     // pending dock-animation timer; cancelled if a new glass opens
+
+  function parseGlass(raw) {
+    const spec = {};
+    for (const line of String(raw || "").split(/\n+/)) {
+      const m = line.match(/^\s*(title|kicker|hero|unit|sub|footer|bars)\s*:\s*(.+)$/i);
+      if (m) spec[m[1].toLowerCase()] = m[2].trim();
+    }
+    if (spec.bars) {
+      spec.barItems = spec.bars.split("|").map((p) => {
+        const t = p.trim();
+        const vm = t.match(/(-?[£$]?\s?[\d.,]+\s?[km]?%?)\s*$/i);
+        const val = vm ? vm[1].trim() : "";
+        return { label: val ? t.slice(0, t.length - vm[0].length).trim() : t, val: val,
+                 num: glassNum(val) };
+      }).filter((b) => b.label || b.val).slice(0, 6);
+      if (!spec.barItems.length) delete spec.barItems;
+    }
+    return (spec.hero || spec.barItems) ? spec : null;
+  }
+  // "£12.4k" → 12400, "-£800" → -800, "1,250" → 1250 — magnitude and sign survive.
+  function glassNum(v) {
+    const m = String(v || "").match(/(-?)\s*[£$]?\s*([\d.,]+)\s*([km])?/i);
+    if (!m) return 0;
+    let n = parseFloat(m[2].replace(/,/g, "")) || 0;
+    if (m[3]) n *= m[3].toLowerCase() === "k" ? 1e3 : 1e6;
+    return m[1] ? -n : n;
+  }
+
+  function buildGlassDom(spec, opts) {
+    gw.replaceChildren();
+    gw.classList.remove("docking", "charty");
+    const head = document.createElement("div"); head.className = "gw-head";
+    const title = document.createElement("span"); title.className = "gw-title"; title.textContent = spec.title || "ON THE GLASS";
+    const x = document.createElement("button"); x.className = "gw-x"; x.type = "button"; x.textContent = "×";
+    x.addEventListener("click", () => closeGlass(true));
+    head.append(title, x); gw.appendChild(head);
+
+    const body = document.createElement("div"); body.className = "gw-body";
+    if (spec.kicker) { const k = document.createElement("div"); k.className = "gw-kick"; k.textContent = spec.kicker; body.appendChild(k); }
+    if (spec.barItems) {
+      gw.classList.add("charty");
+      const max = Math.max(...spec.barItems.map((b) => Math.abs(b.num)), 1);
+      const wrap = document.createElement("div"); wrap.className = "gw-chartwrap";
+      // y-axis tick labels down the left, like the film's charts
+      const axis = document.createElement("div"); axis.className = "gw-axis";
+      const fmtTick = (n) => {
+        if (max >= 1e6) return (n / 1e6).toFixed(n && max < 4e6 ? 1 : 0) + "m";
+        if (max >= 1000) return (n / 1000).toFixed(n && max < 4000 ? 1 : 0) + "k";
+        return String(Math.round(n));
+      };
+      for (const frac of [1, .75, .5, .25, 0]) {
+        const t = document.createElement("span"); t.textContent = fmtTick(max * frac); axis.appendChild(t);
+      }
+      const chart = document.createElement("div"); chart.className = "gw-chart";
+      for (const b of spec.barItems) {
+        const col = document.createElement("div"); col.className = "gw-col";
+        const barEl = document.createElement("div"); barEl.className = "gw-bar";
+        barEl.style.height = Math.max(6, Math.round((Math.abs(b.num) / max) * 150)) + "px";
+        barEl.title = b.val;
+        const l = document.createElement("div"); l.className = "gw-bl"; l.textContent = b.label; l.title = b.val;
+        col.append(barEl, l); chart.appendChild(col);
+      }
+      wrap.append(axis, chart);
+      body.appendChild(wrap);
+    } else if (spec.hero) {
+      const h = document.createElement("div"); h.className = "gw-hero";
+      const span = document.createElement("span"); span.textContent = spec.hero; h.appendChild(span);
+      body.appendChild(h);
+      countUp(span, spec.hero);
+      if (spec.unit) { const u = document.createElement("div"); u.className = "gw-unit"; u.textContent = spec.unit; body.appendChild(u); }
+    }
+    if (spec.sub) {
+      const rule = document.createElement("div"); rule.className = "gw-rule"; body.appendChild(rule);
+      const s = document.createElement("div"); s.className = "gw-sub"; s.textContent = spec.sub; body.appendChild(s);
+    }
+    if (opts && opts.runPrompt) {
+      const run = document.createElement("button"); run.className = "gw-run"; run.type = "button";
+      run.textContent = "RUN DEEP DIVE";
+      run.addEventListener("click", () => { const p = opts.runPrompt; closeGlass(false); sendMessage(p); });
+      body.appendChild(run);
+    }
+    gw.appendChild(body);
+
+    const foot = document.createElement("div"); foot.className = "gw-foot";
+    const src = document.createElement("span"); src.className = "gw-src"; src.textContent = spec.footer || "";
+    const mark = document.createElement("span"); mark.className = "gw-mark"; mark.textContent = "ENCOURT // JARVIS";
+    foot.append(src, mark); gw.appendChild(foot);
+  }
+
+  function showGlass(spec, opts) {
+    opts = opts || {};
+    // A glass already up? Preserve its record — dock it rather than silently discarding it.
+    if (glassOpen && !glassOpen.fromDock && !glassOpen.noDock) addDockTile(glassOpen.spec);
+    if (glassFinishT) { clearTimeout(glassFinishT); glassFinishT = null; }
+    buildGlassDom(spec, opts);
+    glassOpen = { spec: spec, fromDock: !!opts.fromDock, noDock: !!opts.noDock, shownAt: Date.now(), autoDock: !!opts.autoDock };
+    document.body.classList.add("glass");
+    if (glassMonitor) clearInterval(glassMonitor);
+    if (glassOpen.autoDock) {
+      // dock once Jarvis has finished narrating it (or after 25s, whichever first)
+      glassMonitor = setInterval(() => {
+        if (!glassOpen) { clearInterval(glassMonitor); glassMonitor = null; return; }
+        const shown = Date.now() - glassOpen.shownAt;
+        if ((!sBusy && !sQ.length && shown > 3500) || shown > 25000) closeGlass(true);
+      }, 400);
+    }
+  }
+
+  function closeGlass(dock) {
+    if (!glassOpen) return;
+    const g = glassOpen; glassOpen = null;
+    if (glassMonitor) { clearInterval(glassMonitor); glassMonitor = null; }
+    const finish = () => {
+      glassFinishT = null;
+      if (glassOpen) return;   // a new glass opened during the dock animation — leave it up
+      document.body.classList.remove("glass");
+      gw.classList.remove("docking", "charty");
+    };
+    if (dock && !g.fromDock && !g.noDock) {
+      addDockTile(g.spec);
+      gw.classList.add("docking");
+      glassFinishT = setTimeout(finish, 330);
+    } else finish();
+  }
+  glassRoot.addEventListener("click", (e) => { if (e.target === glassRoot) closeGlass(true); });
+
+  function addDockTile(spec) {
+    const btn = document.createElement("button"); btn.type = "button"; btn.className = "dock-tile";
+    const t = document.createElement("div"); t.className = "dk-t"; t.textContent = spec.title || "ON THE GLASS";
+    btn.appendChild(t);
+    if (spec.barItems) {
+      const bars = document.createElement("div"); bars.className = "dk-bars";
+      const max = Math.max(...spec.barItems.map((b) => Math.abs(b.num)), 1);
+      for (const b of spec.barItems) {
+        const i = document.createElement("i");
+        i.style.height = Math.max(3, Math.round((Math.abs(b.num) / max) * 38)) + "px";
+        bars.appendChild(i);
+      }
+      btn.appendChild(bars);
+    } else {
+      const v = document.createElement("div"); v.className = "dk-v"; v.textContent = spec.hero || "";
+      btn.appendChild(v);
+    }
+    if (spec.footer) { const f = document.createElement("div"); f.className = "dk-f"; f.textContent = spec.footer; btn.appendChild(f); }
+    btn.title = (spec.kicker || "") + (spec.sub ? " — " + spec.sub : "");
+    btn.addEventListener("click", () => showGlass(spec, { fromDock: true }));
+    dockEl.prepend(btn);
+    while (dockEl.children.length > 4) dockEl.lastChild.remove();
+    btn.classList.add("flash");
+  }
+
+  /* ---------------- tasks: parallel sessions, tabs, working view ---------------- */
+  const workTask = $("workTask"), workClock = $("workClock"),
+        workNow = $("workNow"), workSteps = $("workSteps"), workStop = $("workStop");
+  const NARRATE_GAP = 9000;     // per task: first step immediately, then ≤1 spoken step / 9s
+  const QUIET_LIMIT = 18000;    // never go longer than this without saying something
+  const GLYPHS = { running: "●", done: "✓", error: "!", stopped: "■" };
+
+  function shortTitle(t) { t = String(t || "task"); return t.length > 34 ? t.slice(0, 33) + "…" : t; }
+  function anyRunning() { for (const t of tasks.values()) if (t.status === "running") return true; return false; }
+
+  function createTask(id, title, opts) {
+    const task = {
+      id: id, title: String(title || "task"), status: "running", session: null,
+      logEl: document.createElement("div"),
+      tabEl: null, glyphEl: null, titleEl: null, closeEl: null,
+      // per-task reply parse state (no shared globals)
+      mode: "brief", carry: "", glassText: "", speakText: "", nextText: "", filesText: "", fullBrief: "",
+      group: null, briefBubble: null, briefPend: "", briefLive: null,
+      speakBlock: null, nextRow: null, filesRow: null,
+      wroteAnything: false, noteBuf: "", sawError: false,
+      narratedFirst: false, lastNarrateAt: 0,
+      t0: Date.now(), steps: [], nowText: "Thinking it through…",
+      reattached: !!(opts && opts.reattached), attachAt: Date.now(),
+      finalized: false,
+    };
+    task.logEl.className = "tasklog";
+    log.appendChild(task.logEl);
+
+    const tab = document.createElement("div"); tab.className = "task-tab"; tab.setAttribute("role", "tab");
+    const g = document.createElement("span"); g.className = "tg running"; g.textContent = GLYPHS.running;
+    const tt = document.createElement("span"); tt.className = "tt"; tt.textContent = shortTitle(task.title); tt.title = task.title;
+    const x = document.createElement("span"); x.className = "tx"; x.textContent = "×"; x.title = "dismiss"; x.style.display = "none";
+    tab.append(g, tt, x);
+    tab.addEventListener("click", (e) => { if (e.target === x) return; activateTask(task.id); });
+    x.addEventListener("click", () => dismissTask(task.id));
+    tabsEl.appendChild(tab);
+    task.tabEl = tab; task.glyphEl = g; task.titleEl = tt; task.closeEl = x;
+
+    tasks.set(task.id, task);
+    return task;
+  }
+
+  function setTaskStatus(task, status) {
+    task.status = status;
+    task.glyphEl.className = "tg " + (GLYPHS[status] ? status : "running");
+    task.glyphEl.textContent = GLYPHS[status] || GLYPHS.running;
+    task.closeEl.style.display = status === "running" ? "none" : "inline";
+    if (task.id === activeTaskId) renderWorkPanel();
+  }
+
+  function activateTask(id) {
+    activeTaskId = id;
+    for (const t of tasks.values()) {
+      const on = t.id === id;
+      t.logEl.classList.toggle("active", on);
+      t.tabEl.classList.toggle("active", on);
+    }
+    atBottom = true; scrollLog();
+    renderWorkPanel();
+  }
+
+  function dismissTask(id) {
+    const task = tasks.get(id);
+    if (!task || task.status === "running") return;
+    task.tabEl.remove(); task.logEl.remove(); tasks.delete(id);
+    if (activeTaskId === id) {
+      activeTaskId = null;
+      const rest = [...tasks.values()];
+      if (rest.length) activateTask(rest[rest.length - 1].id);
+      else renderWorkPanel();
+    }
+  }
+
+  /* working panel always mirrors the active task */
+  function elapsedLabel(task) {
+    const s = Math.floor((Date.now() - task.t0) / 1000);
+    return s < 60 ? s + "s" : Math.floor(s / 60) + "m" + String(s % 60).padStart(2, "0");
+  }
+  function tickClock() {
+    const task = tasks.get(activeTaskId);
+    if (!task || task.status !== "running") return;
+    const s = Math.floor((Date.now() - task.t0) / 1000);
+    workClock.textContent = Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+    if (workMinimized) updateMini(task);
+  }
+  setInterval(tickClock, 1000);
+
+  let workMinimized = false;
+
+  function applyWorkLayout(running) {
+    const fullscreen = running && !workMinimized;
+    document.body.classList.toggle("working", fullscreen);
+    document.body.classList.toggle("workbg", running && workMinimized);
+    const logP = fullscreen ? workLogSlot : deckLogSlot;
+    if (log.parentElement !== logP) { logP.appendChild(log); atBottom = true; scrollLog(); }
+    const tabP = fullscreen ? workTabSlot : deckTabSlot;
+    if (tabsEl.parentElement !== tabP) tabP.appendChild(tabsEl);
+    const barP = fullscreen ? workBarSlot : deckBarSlot;
+    if (bar.parentElement !== barP) barP.appendChild(bar);
+  }
+
+  function updateMini(task) {
+    if (!task) return;
+    const step = task.nowText || "working…";
+    workMiniText.textContent = elapsedLabel(task) + " · " + (step.length > 46 ? step.slice(0, 45) + "…" : step);
+  }
+
+  function renderWorkPanel() {
+    const task = tasks.get(activeTaskId);
+    const running = !!(task && task.status === "running");
+    applyWorkLayout(running);
+    if (!running) {
+      if (pendingFlash) { const p = pendingFlash; pendingFlash = null; surfacePanel(p); }
+      return;
+    }
+    updateMini(task);
+    workTask.textContent = task.title.length > 90 ? task.title.slice(0, 89) + "…" : task.title;
+    workNow.textContent = task.nowText;
+    workSteps.replaceChildren();
+    task.steps.forEach((s, i) => {
+      const row = document.createElement("div"); row.className = "wstep" + (i < task.steps.length - 1 ? " done" : "");
+      const t = document.createElement("span"); t.className = "wt"; t.textContent = s.text;
+      const time = document.createElement("span"); time.className = "wtime"; time.textContent = s.label;
+      row.append(t, time); workSteps.appendChild(row);
+    });
+    workSteps.scrollTop = workSteps.scrollHeight;
+    tickClock();
+  }
+
+  workMin.addEventListener("click", () => { workMinimized = true; renderWorkPanel(); });
+  workMini.addEventListener("click", () => { workMinimized = false; renderWorkPanel(); });
+
+  workStop.addEventListener("click", async () => {
+    const task = tasks.get(activeTaskId);
+    if (!task || task.status !== "running") return;
+    taskLine(task, "line-sys", "▸ stop requested");
+    try { await fetch("/api/tasks/" + encodeURIComponent(task.id) + "/stop", { method: "POST" }); } catch (e) {}
+  });
+
+  function pushStep(task, text) {
+    task.steps.push({ text: text, label: elapsedLabel(task) });
+    while (task.steps.length > 60) task.steps.shift();
+    task.nowText = text;
+    if (task.id === activeTaskId) renderWorkPanel();
+  }
+
+  function narrate(task, text) {
+    if (!task || task.id !== activeTaskId || speakerMuted) return;
+    if (task.reattached && Date.now() - task.attachAt < 3000) return;   // replay burst, not live work
+    if (sQ.length >= 2) return;
+    const now = Date.now();
+    if (task.narratedFirst && now - task.lastNarrateAt < NARRATE_GAP) return;
+    task.narratedFirst = true; task.lastNarrateAt = now;
+    enqueueSpeak(text);
+  }
+
+  setInterval(() => {
+    const task = tasks.get(activeTaskId);
+    if (!task || task.status !== "running") return;
+    if (Date.now() - Math.max(task.lastNarrateAt || 0, task.t0) < QUIET_LIMIT) return;
+    narrate(task, task.steps.length ? "Still working. " + task.steps.length + " steps in so far." : "Still working on it.");
+  }, 7000);
+
+  /* ---------------- per-task reply rendering + sentinel parser ---------------- */
+  function ensureGroup(task) {
+    if (!task.group) {
+      task.group = document.createElement("div"); task.group.className = "reply";
+      const who = document.createElement("div"); who.className = "who"; who.textContent = "J.A.R.V.I.S";
+      task.group.appendChild(who); task.logEl.appendChild(task.group); scrollLog();
+      bumpComm();
+    }
+    return task.group;
+  }
+  const RB_INLINE = /\*\*([^*\n]+)\*\*|`([^`\n]+)`|[\w][\w.\/-]*\.(?:pdf|md|csv|xlsx|txt|json|png|jpg)\b/g;
+
+  function openRepoFile(p) { window.open("/api/file?p=" + encodeURIComponent(p)); }
+
+  function renderInline(parent, text) {
+    let last = 0, m;
+    RB_INLINE.lastIndex = 0;
+    while ((m = RB_INLINE.exec(text)) !== null) {
+      if (m.index > last) parent.appendChild(document.createTextNode(text.slice(last, m.index)));
+      const s = document.createElement("span");
+      if (m[1] != null) { s.className = "rb-b"; s.textContent = m[1]; }
+      else if (m[2] != null) { s.className = "rb-code"; s.textContent = m[2]; }
+      else {
+        const p = m[0];
+        s.className = "rb-file"; s.textContent = p; s.title = "open " + p;
+        s.addEventListener("click", () => openRepoFile(p));
+      }
+      parent.appendChild(s);
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) parent.appendChild(document.createTextNode(text.slice(last)));
+  }
+
+  function ensureBriefBubble(task) {
+    if (!task.briefBubble) {
+      ensureGroup(task);
+      const d = document.createElement("div"); d.className = "turn-deck rich";
+      task.group.appendChild(d); task.briefBubble = d;
+      task.briefPend = ""; task.briefLive = null;
+    }
+    return task.briefBubble;
+  }
+
+  function renderBriefLine(task, line) {
+    const bubble = ensureBriefBubble(task);
+    const trimmed = line.trim();
+    let el, m;
+    if (!trimmed) { el = document.createElement("div"); el.className = "rb-space"; }
+    else if (/^-{3,}$/.test(trimmed)) { el = document.createElement("div"); el.className = "rb-hr"; }
+    else if ((m = trimmed.match(/^(#{2,3})\s+(.*)$/))) {
+      el = document.createElement("div"); el.className = m[1].length === 2 ? "rb-h2" : "rb-h3";
+      renderInline(el, m[2]);
+    } else if ((m = trimmed.match(/^[-*]\s+(.*)$/))) {
+      el = document.createElement("div"); el.className = "rb-bullet";
+      renderInline(el, m[1]);
+    } else if ((m = trimmed.match(/^(\d+)[.)]\s+(.*)$/))) {
+      el = document.createElement("div"); el.className = "rb-num";
+      const n = document.createElement("span"); n.className = "rb-n"; n.textContent = m[1] + ".";
+      const b = document.createElement("span"); b.className = "rb-nt";
+      renderInline(b, m[2]);
+      el.append(n, b);
+    } else {
+      el = document.createElement("div"); el.className = "rb-p";
+      renderInline(el, trimmed);
+    }
+    bubble.insertBefore(el, task.briefLive);   // live partial line stays last
+  }
+
+  function updateBriefLive(task) {
+    if (!task.briefPend) {
+      if (task.briefLive) { task.briefLive.remove(); task.briefLive = null; }
+      return;
+    }
+    if (!task.briefLive) {
+      const d = document.createElement("div"); d.className = "rb-live";
+      task.briefBubble.appendChild(d); task.briefLive = d;
+    }
+    task.briefLive.replaceChildren();
+    renderInline(task.briefLive, task.briefPend);
+  }
+
+  function finalizeBriefBubble(task) {
+    if (!task.briefBubble) return;
+    if (task.briefPend) { const pend = task.briefPend; task.briefPend = ""; renderBriefLine(task, pend); }
+    if (task.briefLive) { task.briefLive.remove(); task.briefLive = null; }
+  }
+
+  function feedBrief(task, t) {
+    ensureBriefBubble(task);
+    task.fullBrief += t;
+    task.briefPend += t;
+    let nl;
+    while ((nl = task.briefPend.indexOf("\n")) !== -1) {
+      const line = task.briefPend.slice(0, nl);
+      task.briefPend = task.briefPend.slice(nl + 1);
+      renderBriefLine(task, line);
+    }
+    updateBriefLive(task);
+    scrollLog();
+  }
+  function renderSpeakBlock(task) {
+    if (!task.speakBlock) {
+      ensureGroup(task);
+      const b = document.createElement("div"); b.className = "speak-block";
+      const h = document.createElement("div"); h.className = "speak-h"; h.textContent = "◗ spoken summary";
+      b.appendChild(h); task.group.appendChild(b); task.speakBlock = b;
+    }
+    while (task.speakBlock.childNodes.length > 1) task.speakBlock.removeChild(task.speakBlock.lastChild);
+    for (const line of task.speakText.split(/\n+/)) {
+      const s = line.replace(/^[\s\-•*]+/, "").trim();
+      if (!s) continue;
+      const li = document.createElement("div"); li.className = "bullet"; li.textContent = s; task.speakBlock.appendChild(li);
+    }
+    scrollLog();
+  }
+  function nextLines(task) {
+    return task.nextText.split(/\n+/).map((l) => l.replace(/^[\s\-•*]+/, "").trim()).filter(Boolean);
+  }
+  function renderNextRow(task) {
+    const lines = nextLines(task);
+    if (!lines.length) return;
+    if (!task.nextRow) {
+      ensureGroup(task);
+      const r = document.createElement("div"); r.className = "nextrow";
+      const h = document.createElement("div"); h.className = "next-h"; h.textContent = "Next actions — want me to run one, sir?";
+      r.appendChild(h); task.group.appendChild(r); task.nextRow = r;
+    }
+    while (task.nextRow.childNodes.length > 1) task.nextRow.removeChild(task.nextRow.lastChild);
+    for (const full of lines) {
+      const b = document.createElement("button"); b.type = "button"; b.className = "next-btn";
+      b.textContent = full.length > 70 ? full.slice(0, 69) + "…" : full;
+      b.title = full;
+      b.addEventListener("click", () => sendMessage(full));   // each action starts a NEW task
+      task.nextRow.appendChild(b);
+    }
+    scrollLog();
+  }
+
+  /* ===FILES=== deliverable cards — "- <repo-relative-path> — <desc>" per line */
+  const FC_GLYPHS = { pdf: "▤", md: "✎", csv: "▦", xlsx: "▦" };
+
+  function fileLines(task) {
+    const out = [];
+    for (const raw of task.filesText.split(/\n+/)) {
+      const l = raw.replace(/^[\s\-•*]+/, "").trim();
+      if (!l) continue;
+      const m = l.match(/^(\S+?)(?:\s+[—–-]+\s+(.*))?$/);
+      if (!m) continue;
+      out.push({ path: m[1], desc: (m[2] || "").trim() });
+    }
+    return out;
+  }
+
+  function buildFileCard(row, f) {
+    const card = document.createElement("div"); card.className = "file-card";
+    const ext = (f.path.split(".").pop() || "").toLowerCase();
+    const g = document.createElement("span"); g.className = "fc-glyph"; g.textContent = FC_GLYPHS[ext] || "●";
+    const info = document.createElement("div"); info.className = "fc-info";
+    const name = document.createElement("div"); name.className = "fc-name";
+    name.textContent = f.path.split("/").pop() || f.path; name.title = f.path;
+    const desc = document.createElement("div"); desc.className = "fc-desc"; desc.textContent = f.desc;
+    info.append(name, desc);
+    const btns = document.createElement("div"); btns.className = "fc-btns";
+    const err = document.createElement("div"); err.className = "fc-err";
+    const open = document.createElement("button"); open.type = "button"; open.className = "fc-btn";
+    open.textContent = "OPEN";
+    open.addEventListener("click", () => openRepoFile(f.path));
+    const finder = document.createElement("button"); finder.type = "button"; finder.className = "fc-btn";
+    finder.textContent = "FINDER"; finder.title = "reveal in Finder";
+    finder.addEventListener("click", async () => {
+      err.style.display = "none";
+      try {
+        const res = await fetch("/api/reveal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path: f.path }) });
+        if (!res.ok) {
+          const body = await res.json().catch(() => null);
+          throw new Error((body && body.error) || ("reveal failed (" + res.status + ")"));
+        }
+      } catch (e) {
+        err.textContent = "▸ " + (e && e.message ? e.message : String(e));
+        err.style.display = "block";
+      }
+    });
+    btns.append(open, finder);
+    card.append(g, info, btns, err);
+    row.appendChild(card);
+  }
+
+  function renderFilesRow(task) {
+    const files = fileLines(task);
+    if (!files.length) return;
+    if (!task.filesRow) {
+      ensureGroup(task);
+      const r = document.createElement("div"); r.className = "filesrow";
+      const h = document.createElement("div"); h.className = "files-h"; h.textContent = "deliverables";
+      r.appendChild(h); task.group.appendChild(r); task.filesRow = r;
+    }
+    while (task.filesRow.childNodes.length > 1) task.filesRow.removeChild(task.filesRow.lastChild);
+    for (const f of files) buildFileCard(task.filesRow, f);
+    scrollLog();
+  }
+
+  // brief → optional ===GLASS=== spec → ===SPEAK=== bullets → optional ===NEXT=== → optional ===FILES===
+  // carry keeps CARRY_KEEP chars so any sentinel split across chunks is still caught.
+  function handleTaskText(task, t) {
+    if (task.mode === "files") { task.filesText += t; renderFilesRow(task); return; }
+    if (task.mode === "next") {
+      const combined = task.carry + t;
+      const i = combined.indexOf(SENT_FILES);
+      if (i !== -1) {
+        task.nextText += combined.slice(0, i);
+        task.carry = ""; task.mode = "files";
+        renderNextRow(task);
+        const after = combined.slice(i + SENT_FILES.length);
+        if (after) { task.filesText += after; renderFilesRow(task); }
+        return;
+      }
+      if (combined.length > CARRY_KEEP) { task.nextText += combined.slice(0, combined.length - CARRY_KEEP); task.carry = combined.slice(combined.length - CARRY_KEEP); }
+      else task.carry = combined;
+      renderNextRow(task);
+      return;
+    }
+    if (task.mode === "speak") {
+      const combined = task.carry + t;
+      const iN = combined.indexOf(SENT_NEXT), iF = combined.indexOf(SENT_FILES);
+      const sent = (iN !== -1 && (iF === -1 || iN < iF)) ? SENT_NEXT : (iF !== -1 ? SENT_FILES : null);
+      if (sent) {
+        const i = sent === SENT_NEXT ? iN : iF;
+        task.speakText += combined.slice(0, i);
+        task.carry = ""; task.mode = sent === SENT_NEXT ? "next" : "files";
+        renderSpeakBlock(task);
+        const after = combined.slice(i + sent.length);
+        if (after) handleTaskText(task, after);
+        return;
+      }
+      if (combined.length > CARRY_KEEP) { task.speakText += combined.slice(0, combined.length - CARRY_KEEP); task.carry = combined.slice(combined.length - CARRY_KEEP); }
+      else task.carry = combined;
+      renderSpeakBlock(task);
+      return;
+    }
+    if (task.mode === "glassbuf") {
+      const combined = task.carry + t;
+      const iS = combined.indexOf(SENT_SPEAK), iN = combined.indexOf(SENT_NEXT), iF = combined.indexOf(SENT_FILES);
+      let sent = null, i = -1;
+      for (const [sn, si] of [[SENT_SPEAK, iS], [SENT_NEXT, iN], [SENT_FILES, iF]]) {
+        if (si !== -1 && (i === -1 || si < i)) { sent = sn; i = si; }
+      }
+      if (sent) {
+        task.glassText += combined.slice(0, i);
+        task.carry = ""; task.mode = sent === SENT_SPEAK ? "speak" : sent === SENT_NEXT ? "next" : "files";
+        const after = combined.slice(i + sent.length);
+        if (after) handleTaskText(task, after);
+        return;
+      }
+      if (combined.length > CARRY_KEEP) { task.glassText += combined.slice(0, combined.length - CARRY_KEEP); task.carry = combined.slice(combined.length - CARRY_KEEP); }
+      else task.carry = combined;
+      return;
+    }
+    // brief mode: watch for ===GLASS=== or ===SPEAK===, whichever comes first
+    const combined = task.carry + t;
+    const iG = combined.indexOf(SENT_GLASS), iS2 = combined.indexOf(SENT_SPEAK);
+    const first = (iG !== -1 && (iS2 === -1 || iG < iS2)) ? SENT_GLASS : (iS2 !== -1 ? SENT_SPEAK : null);
+    if (first) {
+      const i = first === SENT_GLASS ? iG : iS2;
+      const before = combined.slice(0, i), after = combined.slice(i + first.length);
+      if (before) feedBrief(task, before);
+      task.carry = ""; task.mode = first === SENT_GLASS ? "glassbuf" : "speak";
+      finalizeBriefBubble(task);
+      if (after) handleTaskText(task, after);
+      return;
+    }
+    if (combined.length > CARRY_KEEP) { feedBrief(task, combined.slice(0, combined.length - CARRY_KEEP)); task.carry = combined.slice(combined.length - CARRY_KEEP); }
+    else task.carry = combined;
+  }
+
+  function finalizeTask(task, status) {
+    if (task.finalized) return;
+    task.finalized = true;
+    // flush the carry into whichever section was open
+    if (task.carry) {
+      if (task.mode === "brief") feedBrief(task, task.carry);
+      else if (task.mode === "glassbuf") task.glassText += task.carry;
+      else if (task.mode === "speak") { task.speakText += task.carry; renderSpeakBlock(task); }
+      else if (task.mode === "next") { task.nextText += task.carry; renderNextRow(task); }
+      else { task.filesText += task.carry; renderFilesRow(task); }
+      task.carry = "";
+    }
+    finalizeBriefBubble(task);
+    setTaskStatus(task, GLYPHS[status] ? status : "done");
+    if (task.status === "error") taskLine(task, "line-err", "▸ task ended with an error");
+    if (task.status === "stopped") taskLine(task, "line-sys", "▸ task stopped");
+
+    // Put it on the glass — overlay for live tasks, straight to the dock for replays or
+    // while another task's full-screen work view is up (never block its controls).
+    const liveEnough = !task.reattached || Date.now() - task.attachAt > 3000;
+    const spec = parseGlass(task.glassText);
+    if (spec) {
+      if (liveEnough && !document.body.classList.contains("working")) showGlass(spec, { autoDock: true });
+      else addDockTile(spec);
+    } else if (task.glassText.trim()) {
+      // malformed ===GLASS=== block — never swallow content silently
+      feedBrief(task, "\n" + task.glassText);
+      finalizeBriefBubble(task);
+    }
+
+    // speak each ===SPEAK=== bullet as its own utterance — first line is audible sooner
+    if (liveEnough && !speakerMuted) {
+      const bullets = task.speakText.trim();
+      if (bullets) {
+        for (const line of bullets.split(/\n+/)) { const s = lineToSpeech(line); if (s) enqueueSpeak(s); }
+      }
+      else if (task.fullBrief.trim()) enqueueSpeak(capSpoken(task.fullBrief.trim()));
+      else if (task.status === "error") enqueueSpeak("That one didn't start, sir — there's an error on screen.");
+      const n = nextLines(task).length;
+      if (n) enqueueSpeak("I have " + n + " suggested next step" + (n === 1 ? "" : "s") + " on screen.");
+    }
+    scheduleDeckRefresh();   // the run may have rewritten deck-state.json / dropped a brief
+  }
+
+  function handleTaskEvent(task, ev) {
+    if (!ev || !ev.type) return;
+    if (ev.type === "task") {
+      if (ev.id && ev.id !== task.id) {
+        tasks.delete(task.id);
+        if (activeTaskId === task.id) activeTaskId = ev.id;
+        task.id = ev.id; tasks.set(ev.id, task);
+      }
+      if (ev.title) { task.title = String(ev.title); task.titleEl.textContent = shortTitle(task.title); task.titleEl.title = task.title; if (task.id === activeTaskId) renderWorkPanel(); }
+    } else if (ev.type === "session") {
+      task.session = ev.id;
+    } else if (ev.type === "text") {
+      const t = ev.text || "";
+      if (t.trim() && !task.wroteAnything) {
+        task.wroteAnything = true; task.nowText = "Writing up the answer…";
+        if (task.id === activeTaskId) workNow.textContent = task.nowText;
+      }
+      if (task.mode === "brief") task.noteBuf += t;
+      handleTaskText(task, t);
+    } else if (ev.type === "tool") {
+      if (task.mode === "brief") {
+        if (task.carry) { feedBrief(task, task.carry); task.carry = ""; }
+        const note = task.noteBuf.replace(/[*#`_>]/g, "").trim();
+        if (note && note.length < 220) narrate(task, note);
+        task.noteBuf = "";
+        finalizeBriefBubble(task);   // close the streamed blocks before a new bubble opens
+        task.briefBubble = null;
+      }
+      const step = ev.step || ("Using " + ev.name);
+      taskLine(task, "line-tool", "▸ using " + (ev.detail ? ev.name + " — " + ev.detail : ev.name));
+      pushStep(task, step);
+      narrate(task, step);
+      task.wroteAnything = false;
+    } else if (ev.type === "status") {
+      if (ev.status && ev.status !== "running") finalizeTask(task, ev.status);
+    } else if (ev.type === "error") {
+      task.sawError = true;   // a stream that closes without a status still finalizes as error
+      taskLine(task, "line-err", "▸ error — " + String(ev.error));
+    }
+  }
+
+  /* Deck data goes stale after every number-changing run (the persona tells tasks to
+     rewrite deck-state.json) — re-fetch shortly after any task finishes, debounced. */
+  let deckRefreshT = null;
+  function scheduleDeckRefresh() {
+    if (deckRefreshT) clearTimeout(deckRefreshT);
+    deckRefreshT = setTimeout(async () => {
+      deckRefreshT = null;
+      try {
+        const res = await fetch("/api/deck");
+        if (res.ok) renderDeck(await res.json(), { quiet: true });
+      } catch (e) { /* next finish retries */ }
+    }, 1500);
+  }
+
+  /* ---------------- streams (SSE over fetch, one reader per task) ---------------- */
+  async function consumeStream(task, res) {
+    const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf("\n\n")) !== -1) {
+        const raw = buf.slice(0, idx); buf = buf.slice(idx + 2);
+        for (const line of raw.split("\n")) {
+          if (!line.startsWith("data:")) continue;
+          let ev; try { ev = JSON.parse(line.slice(5).trim()); } catch (e) { continue; }
+          handleTaskEvent(task, ev);
+        }
+      }
+    }
+    if (!task.finalized) finalizeTask(task, task.sawError ? "error" : "done");   // stream closed without a terminal status
+  }
+
+  /* ---------------- contextual surfacing + on-device fastpaths ---------------- */
+  let pendingFlash = null;
+  let deckCache = null;
+
+  function detectIntent(t) {
+    t = String(t).toLowerCase();
+    if (/\bskills?\b/.test(t)) return "skills";
+    if (/\b(revenue|kpi|occupanc\w*|members?|pilates|budget|money|numbers?|readings?|tiles?)\b/.test(t)) return "readings";
+    if (/\b(briefs?|reports?|desk sheets?)\b/.test(t)) return "briefs";
+    return null;
+  }
+  const PANEL_LABEL = { skills: "your skills", readings: "the live readings", briefs: "the recent briefs" };
+  const FASTPATH_RE = /^\s*(show|open|display|bring up|pull up|where(?:'s| is| are)?)\b/i;
+
+  function surfacePanel(kind) {
+    const targets = kind === "skills" ? [sectSkills, skillsEl]
+      : kind === "readings" ? [sectReadings, tilesEl]
+      : kind === "briefs" ? [briefsEl] : [];
+    if (!targets.length) return;
+    targets[targets.length - 1].scrollIntoView({ behavior: "smooth", block: "nearest" });
+    for (const el of targets) {
+      el.classList.remove("flash");
+      void el.offsetWidth;              // restart the animation
+      el.classList.add("flash");
+    }
+  }
+
+  // Every message starts a NEW task — parallel sessions, independent readers.
+  async function sendMessage(text) {
+    text = String(text || "").trim();
+    if (!text) return;
+    stopSpeaking();                     // a fresh command overrides whatever he was saying
+
+    // on-device fastpaths — no Claude session spun up
+    if (/^\s*(new session|clear the deck|fresh start)\s*$/i.test(text)) {
+      newBtn.click(); enqueueSpeak("Fresh session, sir."); return;
+    }
+    if (/^\s*(sitrep|status report|situation report)\s*$/i.test(text)) {
+      const alerts = (deckCache && deckCache.alerts) || [];
+      const line = (deckCache && deckCache.statusLine) || "deck state unknown";
+      addSysLine("sitrep — " + line);
+      enqueueSpeak("Sitrep, sir. " + line.replace(/·/g, ". ") + (alerts.length ? " Top of the queue: " + alerts[0] : ""));
+      return;
+    }
+    const intent = detectIntent(text);
+    if (intent && FASTPATH_RE.test(text) && text.split(/\s+/).length <= 6) {
+      surfacePanel(intent);
+      addSysLine("on screen — " + PANEL_LABEL[intent]);
+      enqueueSpeak("On screen now, sir — " + PANEL_LABEL[intent] + ".");
+      return;
+    }
+    if (intent) pendingFlash = intent;   // flashes when the run finishes and the deck returns
+
+    workMinimized = false;               // a fresh command always brings the work view up
+    const othersRunning = anyRunning();
+    const task = createTask("tmp-" + (++tmpSeq), text);
+    activateTask(task.id);
+    const ub = document.createElement("div"); ub.className = "turn-user"; ub.textContent = text;
+    task.logEl.appendChild(ub); atBottom = true; scrollLog();
+    bumpComm();
+    taskLine(task, "line-work", "▸ working — going through it now");
+    enqueueSpeak(othersRunning ? "Okay sir — starting that as a separate task." : ACKS[ackIdx++ % ACKS.length]);
+    try {
+      const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ message: text }) });
+      if (!res.ok || !res.body) throw new Error("chat request failed (" + res.status + ")");
+      await consumeStream(task, res);
+    } catch (e) {
+      taskLine(task, "line-err", "▸ error — " + (e && e.message ? e.message : String(e)));
+      if (!task.finalized) finalizeTask(task, "error");
+    }
+  }
+
+  // On page load, re-attach to any tasks the server still knows about.
+  async function reattachTasks() {
+    let list = [];
+    try {
+      const res = await fetch("/api/tasks"); if (!res.ok) return;
+      const body = await res.json();
+      list = Array.isArray(body) ? body : (body && body.tasks) || [];
+    } catch (e) { return; }
+    for (const t of list) {
+      if (!t || !t.id || tasks.has(t.id)) continue;
+      const task = createTask(t.id, t.title || "task", { reattached: true });
+      // The server already knows this task's real status — reflect it up front so the
+      // "prefer a genuinely running task" selection below works and a finished task
+      // never flashes the full-screen working takeover during boot replay.
+      if (t.status && t.status !== "running") setTaskStatus(task, t.status);
+      fetch("/api/tasks/" + encodeURIComponent(t.id) + "/stream")
+        .then((r) => { if (r.ok && r.body) return consumeStream(task, r); })
+        .catch(() => {})
+        .then(() => { if (!task.finalized && t.status && t.status !== "running") finalizeTask(task, t.status); });
+    }
+    if (list.length) {
+      const all = [...tasks.values()];   // server sends newest first
+      const running = all.filter((t) => t.status === "running");
+      activateTask((running[0] || all[0]).id);
+      addSysLine("re-attached to " + list.length + " task" + (list.length === 1 ? "" : "s"));
+    }
+  }
+
+  bar.addEventListener("submit", (e) => { e.preventDefault(); const t = input.value; input.value = ""; sendMessage(t); });
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.isComposing) {
+      e.preventDefault();
+      const t = input.value; input.value = "";
+      sendMessage(t);
+    }
+  });
+
+  /* ---------------- deck render ---------------- */
+  function countUp(el, str) {
+    const m = String(str).match(/^([£$]?)([\d,]+(?:\.\d+)?)([a-z%]{0,3})$/i);
+    if (!m) return;
+    const target = parseFloat(m[2].replace(/,/g, ""));
+    if (!isFinite(target) || target < 10) return;
+    const decimals = (m[2].split(".")[1] || "").length;
+    const t0 = performance.now(), DUR = 750;
+    const fmt = (n) => m[1] + n.toLocaleString("en-GB", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + m[3];
+    (function frame(now) {
+      const p = Math.min(1, (now - t0) / DUR);
+      const eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = fmt(Math.round(target * eased * Math.pow(10, decimals)) / Math.pow(10, decimals));
+      if (p < 1) requestAnimationFrame(frame); else el.textContent = str;
+    })(t0);
+  }
+
+  function renderVault(v, quiet) {
+    if (!v) { vaultEl.className = "vault"; vaultText.textContent = "vault unchecked"; return; }
+    const cls = v.status === "connected" ? "ok" : v.status === "attention" ? "warn" : "bad";
+    vaultEl.className = "vault " + cls;
+    vaultText.textContent =
+      v.status === "disconnected" ? "VAULT OFFLINE"
+      : "vault · " + (v.noteCount || 0) + " notes" + (v.problems && v.problems.length ? " · " + v.problems.length + " to fix" : " · in sync");
+    vaultEl.title = (v.headline || "") + ((v.problems || []).length ? "\n— " + v.problems.join("\n— ") : "");
+
+    if (quiet) return;   // background refreshes update the line without spamming the log
+    addSysLine("obsidian vault checked — " + (v.headline || v.status));
+    for (const p of v.problems || []) addSysLine("vault: " + p);
+  }
+
+  // Briefing paragraph — mint highlights on money, times, and counts, like the glass.
+  const HL_RE = /£[\d.,]+k?|\b\d{1,2}:\d{2}\b|\b\d+ (?:intro(?:s)?|members?|weeks?|women|payers?)\b/gi;
+  function renderBriefing(text) {
+    briefingEl.replaceChildren();
+    if (!text) return;
+    let last = 0, m;
+    HL_RE.lastIndex = 0;
+    while ((m = HL_RE.exec(text)) !== null) {
+      if (m.index > last) briefingEl.appendChild(document.createTextNode(text.slice(last, m.index)));
+      const s = document.createElement("span"); s.className = "hl"; s.textContent = m[0];
+      briefingEl.appendChild(s);
+      last = m.index + m[0].length;
+    }
+    if (last < text.length) briefingEl.appendChild(document.createTextNode(text.slice(last)));
+  }
+
+  /* WAITING ON YOU — first four cards, the rest behind "+N MORE" like the glass */
+  const ALERTS_SHOWN = 4;
+  let lastAlerts = [], alertsOpen = false;
+
+  function renderAlerts() {
+    alertsEl.replaceChildren();
+    alertCount.textContent = lastAlerts.length ? String(lastAlerts.length).padStart(2, "0") : "";
+    lastAlerts.forEach((a, i) => {
+      if (i >= ALERTS_SHOWN && !alertsOpen) return;
+      const pill = document.createElement("div"); pill.className = "alert-pill"; pill.textContent = a;
+      const idx = document.createElement("span"); idx.className = "ai"; idx.textContent = String(i + 1).padStart(2, "0");
+      pill.appendChild(idx);
+      pill.title = "click — Jarvis briefs you on this and lines up the next action";
+      pill.addEventListener("click", () => sendMessage("Brief me on this waiting-on-you item and line up the next action: \"" + a + "\""));
+      alertsEl.appendChild(pill);
+    });
+    const extra = lastAlerts.length - ALERTS_SHOWN;
+    alertsMore.hidden = extra <= 0;
+    alertsMore.textContent = alertsOpen ? "− COLLAPSE" : "+" + extra + " MORE";
+  }
+  alertsMore.addEventListener("click", () => { alertsOpen = !alertsOpen; renderAlerts(); });
+
+  let newestBrief = null;
+  fullBriefBtn.addEventListener("click", () => {
+    if (newestBrief) window.open("/api/briefs/" + encodeURIComponent(newestBrief), "_blank");
+  });
+
+  function renderDeck(deck, opts) {
+    deckCache = deck;
+    renderVault(deck.vault, !!(opts && opts.quiet));
+    renderBriefing((deck.briefing || deck.statusLine || "") + (deck.date ? "  ·  " + deck.date : ""));
+    lastAlerts = deck.alerts || [];
+    renderAlerts();
+    tilesEl.replaceChildren();
+    for (const t of deck.tiles || []) {
+      const tile = document.createElement("div"); tile.className = "tile";
+      const tone = ["neutral", "green", "amber", "red"].includes(t.tone) ? t.tone : "neutral"; tile.dataset.tone = tone;
+      const label = document.createElement("div"); label.className = "t-label"; label.textContent = t.label;
+      const value = document.createElement("div"); value.className = "t-value";
+      const num = document.createElement("span"); num.textContent = t.value; value.appendChild(num);
+      countUp(num, String(t.value == null ? "" : t.value));
+      if (t.unit) { const u = document.createElement("span"); u.className = "t-unit"; u.textContent = t.unit; value.appendChild(u); }
+      const sub = document.createElement("div"); sub.className = "t-sub tone-" + tone; sub.textContent = t.sub || "";
+      tile.append(label, value, sub);
+      // Tile click = put the reading on the glass, with the deep-dive one tap away.
+      tile.addEventListener("click", () => showGlass({
+        title: t.label, kicker: t.label, hero: String(t.value == null ? "" : t.value),
+        unit: t.unit || "", sub: t.sub || "", footer: "deck reading · " + (deck.date || ""),
+      }, { runPrompt: t.prompt || null, noDock: true }));
+      tilesEl.appendChild(tile);
+    }
+    skillsEl.replaceChildren();
+    for (const s of deck.skills || []) {
+      const card = document.createElement("div"); card.className = "skill";
+      const head = document.createElement("div"); head.className = "s-head";
+      const name = document.createElement("div"); name.className = "s-name"; name.textContent = s.name; head.appendChild(name);
+      if (s.cadence) {
+        const badge = document.createElement("span"); badge.className = "badge";
+        const c = String(s.cadence).toLowerCase();
+        if (c.includes("close-out")) badge.classList.add("badge-purple");
+        else if (c.includes("when red")) badge.classList.add("badge-red");
+        else if (c.includes("month-end")) badge.classList.add("badge-amber");
+        badge.textContent = s.cadence; head.appendChild(badge);
+      }
+      const desc = document.createElement("div"); desc.className = "s-desc"; desc.textContent = s.desc || "";
+      desc.title = s.desc || "";
+      card.append(head, desc);
+      card.addEventListener("click", () => sendMessage("Run the " + s.name + " skill"));
+      skillsEl.appendChild(card);
+    }
+    briefsEl.replaceChildren();
+    const briefs = deck.briefs || [];
+    newestBrief = briefs.length ? briefs[0].file : null;
+    fullBriefBtn.hidden = !newestBrief;
+    for (const b of briefs) {
+      const chip = document.createElement("button"); chip.type = "button"; chip.className = "brief-chip";
+      const f = document.createElement("span"); f.className = "bc-file"; f.textContent = b.file;
+      chip.appendChild(f);
+      if (b.head) { const h = document.createElement("span"); h.className = "bc-head"; h.textContent = b.head; chip.appendChild(h); }
+      chip.title = (b.head ? b.head + "\n" : "") + (b.mtime || "");
+      chip.addEventListener("click", () => { window.open("/api/briefs/" + encodeURIComponent(b.file), "_blank"); });
+      briefsEl.appendChild(chip);
+    }
+  }
+
+  /* ---------------- boot ---------------- */
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+  async function bootTheatre() {
+    const lines = ["ENCOURT SYSTEMS", "J.A.R.V.I.S CORE", "INITIALIZING"];
+    let shown = [];
+    let skipped = false;
+    const skip = () => { skipped = true; };
+    bootEl.addEventListener("click", skip, { once: true });
+    for (const l of lines) {
+      if (skipped) break;
+      shown.push(l);
+      bootLines.replaceChildren();
+      shown.forEach((s, i) => {
+        const d = document.createElement("div");
+        if (i === shown.length - 1) { const b = document.createElement("b"); b.textContent = s; d.appendChild(b); }
+        else d.textContent = s;
+        bootLines.appendChild(d);
+      });
+      await wait(skipped ? 0 : 420);
+    }
+    document.body.classList.add("ready");
+  }
+
+  async function boot() {
+    bootTheatre();
+    setupRecognition(); updateMicUI(); updateSpkUI(); updateWakeUI();
+    addSysLine("initializing deck");
+
+    // If the mic was live last session, Chrome has already granted permission — bring it straight back up.
+    let wantMic = false; try { wantMic = localStorage.getItem("enc_mic") === "1"; } catch (e) {}
+    if (wantMic && recog) { micMuted = false; recogWanted = true; firstMicEnable = false; updateMicUI(); startRecog(); }
+
+    reattachTasks();   // pick any existing tasks back up (replay rebuilds their history)
+
+    try {
+      const res = await fetch("/api/deck"); if (!res.ok) throw new Error("deck fetch failed (" + res.status + ")");
+      const deck = await res.json(); renderDeck(deck);
+      await wait(320); addSysLine("jarvis core linked");
+      await wait(280);
+      addSysLine("deck online — " + (deck.skills || []).length + " skills armed · "
+        + (wakeMode ? "say “Hey Nathaniel”" : "click ENGAGE, speak, then pause"));
+    } catch (e) {
+      statusChip.textContent = "OFFLINE";
+      addErrLine("could not reach the deck server — " + (e && e.message ? e.message : String(e)));
+    }
+  }
+  boot();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+# never commit credentials, live tokens, runtime state, logs, or the ledger
+.env
+.tokens.json
+state.json
+.daemon.lock
+ledger.jsonl
+queue.json
+KILL
+logs/
+node_modules/
+*.log

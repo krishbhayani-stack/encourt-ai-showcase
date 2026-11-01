@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Encourt Matchmaker</title>
+<style>
+  :root{--bg:#0b0f14;--panel:#111823;--panel2:#0e1520;--line:#1e2b3a;--ink:#dce7f2;--dim:#8298b0;--cyan:#39d4e0;--amber:#f5b642;--red:#ff5c6c;--green:#43d089}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  .wrap{max-width:960px;margin:0 auto;padding:22px 18px 60px}
+  header{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+  h1{font-size:17px;letter-spacing:.14em;margin:0;font-weight:700}
+  h1 .sub{color:var(--cyan)}
+  .pill{font-size:11px;font-weight:700;letter-spacing:.08em;padding:4px 10px;border-radius:999px;border:1px solid var(--line)}
+  .pill.pilot{background:rgba(245,182,66,.12);color:var(--amber);border-color:rgba(245,182,66,.4)}
+  .pill.auto{background:rgba(255,92,108,.14);color:var(--red);border-color:rgba(255,92,108,.5)}
+  .health{margin-left:auto;display:flex;align-items:center;gap:8px;color:var(--dim);font-size:12px}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--dim)}
+  .dot.ok{background:var(--green)} .dot.stale{background:var(--amber)} .dot.dead{background:var(--red)}
+  .banner{padding:10px 14px;border-radius:10px;margin-bottom:10px;font-size:13px;border:1px solid}
+  .banner.info{background:var(--panel2);border-color:var(--line);color:var(--dim)}
+  .banner.warn{background:rgba(245,182,66,.1);border-color:rgba(245,182,66,.45);color:var(--amber)}
+  .banner.danger{background:rgba(255,92,108,.1);border-color:rgba(255,92,108,.5);color:var(--red)}
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .card h3{margin:0 0 10px;font-size:11px;letter-spacing:.1em;color:var(--dim);text-transform:uppercase;font-weight:700}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  button{font:inherit;font-weight:600;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--ink);padding:8px 14px;cursor:pointer}
+  button:hover{border-color:var(--cyan)}
+  button.active{background:var(--cyan);color:#04121a;border-color:var(--cyan)}
+  button.kill{background:rgba(255,92,108,.12);border-color:rgba(255,92,108,.5);color:var(--red);width:100%}
+  button.kill.on{background:var(--red);color:#fff}
+  button.approve{border-color:rgba(67,208,137,.5);color:var(--green)}
+  button.dismiss{color:var(--dim)}
+  .stat{font-size:22px;font-weight:700}
+  .stat small{display:block;font-size:11px;color:var(--dim);letter-spacing:.06em;text-transform:uppercase;font-weight:600;margin-top:2px}
+  .statrow{display:flex;gap:22px;flex-wrap:wrap}
+  .queue h2{font-size:13px;letter-spacing:.1em;color:var(--dim);text-transform:uppercase;margin:20px 0 10px}
+  .prop{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px}
+  .prop .top{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline}
+  .prop .title{font-size:15px;font-weight:700}
+  .prop .meta{color:var(--dim);font-size:12px}
+  .msg{background:var(--panel2);border:1px solid var(--line);border-left:3px solid var(--cyan);border-radius:8px;padding:10px 12px;margin:8px 0;font-size:13px}
+  .msg .to{color:var(--cyan);font-size:11px;font-weight:600;letter-spacing:.04em;margin-bottom:4px}
+  .empty{text-align:center;color:var(--dim);padding:40px;border:1px dashed var(--line);border-radius:12px}
+  .foot{color:var(--dim);font-size:11px;text-align:center;margin-top:26px}
+  @media(max-width:640px){.cards{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>ENCOURT · <span class="sub">MATCHMAKER</span></h1>
+    <span id="mode" class="pill pilot">PILOT</span>
+    <div class="health"><span id="dot" class="dot"></span><span id="healthText">connecting…</span></div>
+  </header>
+
+  <div id="banners"></div>
+
+  <div class="cards">
+    <div class="card">
+      <h3>Mode</h3>
+      <div class="row">
+        <button id="btnPilot" onclick="setMode('PILOT')">PILOT · review first</button>
+        <button id="btnAuto" onclick="setMode('AUTO')">AUTO · auto-send</button>
+      </div>
+      <p style="color:var(--dim);font-size:12px;margin:10px 0 0">Sending is not built yet, so AUTO is inert — the daemon still only queues.</p>
+    </div>
+    <div class="card">
+      <h3>Kill switch</h3>
+      <button id="btnKill" class="kill" onclick="toggleKill()">◼ STOP EVERYTHING</button>
+      <p style="color:var(--dim);font-size:12px;margin:10px 0 0">Persisted to disk — survives restarts. Releasing re-enables polling.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Daemon</h3>
+    <div class="statrow">
+      <div class="stat"><span id="sMatches">—</span><small>matches last poll</small></div>
+      <div class="stat"><span id="sFound">—</span><small>proposals found</small></div>
+      <div class="stat"><span id="sQueued">—</span><small>in queue</small></div>
+      <div class="stat"><span id="sPoll">—</span><small>last poll</small></div>
+      <div class="stat"><span id="sWin">±30′ strict</span><small>merge rule</small></div>
+    </div>
+  </div>
+
+  <div class="queue">
+    <h2>Approval queue</h2>
+    <div id="queue"></div>
+  </div>
+
+  <div class="foot">Localhost only · writer disabled this phase · nothing has been sent</div>
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function fmtTime(iso){ if(!iso) return '—'; const d=new Date(iso.endsWith&&iso.endsWith('Z')?iso:iso+'Z'); return new Intl.DateTimeFormat('en-GB',{weekday:'short',hour:'numeric',minute:'2-digit',hour12:true,timeZone:'Europe/London'}).format(d); }
+function ago(sec){ if(sec==null) return 'never'; if(sec<90) return sec+'s ago'; if(sec<5400) return Math.round(sec/60)+'m ago'; return Math.round(sec/3600)+'h ago'; }
+
+async function refresh(){
+  let s; try{ s = await (await fetch('/api/state',{cache:'no-store'})).json(); }catch(e){ $('#healthText').textContent='daemon server unreachable'; return; }
+  // mode
+  const modeEl=$('#mode'); modeEl.textContent=s.mode; modeEl.className='pill '+(s.mode==='AUTO'?'auto':'pilot');
+  $('#btnPilot').classList.toggle('active', s.mode==='PILOT');
+  $('#btnAuto').classList.toggle('active', s.mode==='AUTO');
+  // health
+  const dot=$('#dot'); dot.className='dot '+(s.authDead?'dead':(s.daemonHealth==='STALE'?'stale':(s.daemonHealth==='ok'?'ok':'')));
+  $('#healthText').textContent = s.authDead?'AUTH DEAD':(s.daemonHealth==='never-run'?'daemon not started':(s.daemonHealth==='STALE'?'poll STALE':'healthy · '+ago(s.pollAgeSec)));
+  // kill
+  const k=$('#btnKill'); k.classList.toggle('on', s.killed); k.textContent = s.killed?'◼ STOPPED — click to resume':'◼ STOP EVERYTHING';
+  // banners
+  const b=[]; b.push(`<div class="banner info">The Firebase writer is <b>disabled</b> — the daemon detects and queues, but cannot send. Approvals here are recorded for when sending is built.</div>`);
+  if(s.authDead) b.push(`<div class="banner danger">AUTH_DEAD — the daemon has stopped authenticating (${esc(s.authDeadReason||'')}). It will not poll until fixed.</div>`);
+  if(s.killed) b.push(`<div class="banner danger">KILL switch engaged — all daemon activity paused.</div>`);
+  if(s.daemonHealth==='STALE') b.push(`<div class="banner warn">No successful poll in a while — is the daemon running? (npm start)</div>`);
+  if(s.daemonHealth==='never-run') b.push(`<div class="banner warn">Daemon hasn't run yet. Start it with <b>npm start</b> (loop) or <b>npm run once</b>.</div>`);
+  if(s.lastAlert) b.push(`<div class="banner warn">Last alert: ${esc(s.lastAlert)}</div>`);
+  $('#banners').innerHTML=b.join('');
+  // stats
+  const lt=s.lastTick||{}; const totalMatches=(lt.perDate||[]).reduce((n,d)=>n+(d.matches||0),0);
+  $('#sMatches').textContent = lt.perDate?totalMatches:'—';
+  $('#sFound').textContent = lt.found??'—';
+  $('#sQueued').textContent = (s.pending||[]).length;
+  $('#sPoll').textContent = ago(s.pollAgeSec);
+  // queue
+  const q=$('#queue');
+  if(!s.pending || !s.pending.length){ q.innerHTML=`<div class="empty">No near-miss proposals right now.<br>The daemon is watching — a merge appears here when players could combine into a full game.</div>`; return; }
+  q.innerHTML = s.pending.map(p=>{
+    const t=p.target||{}; const msgs=(p.messages||[]).map(m=>`<div class="msg"><div class="to">→ post to the ${esc(fmtTime(m.toStart||t.start_date))} game's chat</div>${esc(m.text)}</div>`).join('');
+    return `<div class="prop">
+      <div class="top">
+        <div class="title">${p.demo?'<span style="background:rgba(245,182,66,.18);color:var(--amber);font-size:10px;font-weight:700;letter-spacing:.08em;padding:2px 7px;border-radius:5px;margin-right:8px;vertical-align:middle">DEMO</span>':''}Fill the ${esc(fmtTime(t.start_date))} game · ${esc(t.min_level)}–${esc(t.max_level)} · ${esc(t.court||'no court yet')}</div>
+        <div class="meta">move ${esc(p.playersMoved)} player(s) · frees ${esc((p.freesCourts||[]).length)} court(s)</div>
+      </div>
+      ${msgs}
+      <div class="row" style="margin-top:10px">
+        <button class="approve" onclick="resolve('${esc(p.proposalId)}','approved')">✓ Approve</button>
+        <button class="dismiss" onclick="resolve('${esc(p.proposalId)}','dismissed')">Dismiss</button>
+        <span style="color:var(--dim);font-size:12px;margin-left:auto">approval recorded — no send yet</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+async function setMode(mode){ if(mode==='AUTO' && !confirm('Switch to AUTO?\\n\\n(The daemon still cannot send until the writer is built — this only sets the flag.)')) return; await fetch('/api/mode',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode})}); refresh(); }
+async function toggleKill(){ const s=await (await fetch('/api/state')).json(); await fetch('/api/kill',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({engaged:!s.killed})}); refresh(); }
+async function resolve(id,res){ await fetch('/api/resolve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({proposalId:id,resolution:res})}); refresh(); }
+refresh(); setInterval(refresh, 5000);
+</script>
+</body>
+</html>

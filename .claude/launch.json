@@ -1,0 +1,16 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "jarvis",
+      "url": "http://localhost:4870",
+      "port": 4870
+    },
+    {
+      "name": "matchmaker",
+      "runtimeExecutable": "/usr/local/bin/node",
+      "runtimeArgs": ["/path/to/encourt-ai/matchmaker/server.js"],
+      "port": 4880
+    }
+  ]
+}
