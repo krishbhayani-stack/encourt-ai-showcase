@@ -7,7 +7,7 @@ intro-conversion monitor — built on the CORRECTED 15-Jul method.
 ## The one method rule (15-Jul correction — never regress)
 
 **Intro conversion is measured on the FULL intro history, denominator = COMPLETED intros.**
-The 12-Jul "12%" was a structural undercount: it filtered to single-£99-payment purchasers,
+The 12-Jul figure was a structural undercount: it filtered to single-£99-payment purchasers,
 which excluded almost everyone who converted (converters have 2+ benefit payments by
 definition). True method: everyone who ever bought the intro (£99/£100 BENEFIT_PURCHASE;
 2026-07-15 baseline = N people) → of those whose intro window has ENDED, what % now hold

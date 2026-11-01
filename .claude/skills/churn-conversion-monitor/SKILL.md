@@ -11,7 +11,7 @@ Ground truth: `brain/specs/churn-conversion-monitor.md`. Plumbing:
 ## The one rule that must never regress
 
 Conversion = full intro history, denominator = COMPLETED intros only. Never filter to
-single-payment purchasers (that's the broken 12% method — converters have 2+ payments by
+single-payment purchasers (that's the broken single-payment method — converters have 2+ payments by
 definition). Baseline 15 Jul: **N%**, tripwire 20%, dominant landing =
 Access Monthly.
 
